@@ -174,8 +174,9 @@ app.get("/api/auth/me", authRequired, async (req, res) => {
   return res.json({ user });
 });
 
-app.get("/api/forms", async (_req, res) => {
+app.get("/api/forms", authRequired, async (req, res) => {
   const forms = await prisma.form.findMany({
+    where: { ownerId: req.user!.id },
     orderBy: { createdAt: "desc" },
     include: {
       owner: { select: { id: true, email: true, name: true } },
