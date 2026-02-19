@@ -151,7 +151,6 @@ export const submitForm = async (req: Request, res: Response) => {
       formId: form.id,
       answers: {
         create: preparedAnswers.map((answer) => ({
-          questionId: answer.questionId,
           value: JSON.parse(JSON.stringify(answer.value)),
           question: { connect: { id: answer.questionId } },
         })),
