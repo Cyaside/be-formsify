@@ -1,0 +1,216 @@
+import type { Request, Response } from "express";
+import prisma from "../lib/prisma";
+
+const QUESTION_TYPES = ["SHORT_TEXT", "MULTIPLE_CHOICE", "CHECKBOX", "DROPDOWN"] as const;
+type QuestionType = (typeof QUESTION_TYPES)[number];
+
+const requiresOptions = (type: QuestionType) =>
+  type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "DROPDOWN";
+
+const parseOptions = (value: unknown) => {
+  if (!Array.isArray(value)) return null;
+  const labels = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((label) => label.length > 0);
+  return labels;
+};
+
+const ensureEditableForm = async (formId: string, userId: string) => {
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    select: { id: true, ownerId: true },
+  });
+  if (!form) {
+    return { error: { status: 404, message: "Form not found" } };
+  }
+  if (form.ownerId !== userId) {
+    return { error: { status: 403, message: "Forbidden" } };
+  }
+  const responseCount = await prisma.response.count({ where: { formId } });
+  if (responseCount > 0) {
+    return {
+      error: {
+        status: 409,
+        message: "Form sudah memiliki respons dan tidak bisa diubah.",
+      },
+    };
+  }
+  return { form };
+};
+
+export const listQuestions = async (req: Request, res: Response) => {
+  const formId = String(req.params.id);
+  const form = await prisma.form.findUnique({ where: { id: formId } });
+  if (!form) {
+    return res.status(404).json({ message: "Form not found" });
+  }
+
+  const questions = await prisma.question.findMany({
+    where: { formId },
+    orderBy: { order: "asc" },
+    include: { options: { orderBy: { order: "asc" } } },
+  });
+
+  return res.json({ data: questions });
+};
+
+export const createQuestion = async (req: Request, res: Response) => {
+  const formId = String(req.params.id);
+  const guard = await ensureEditableForm(formId, req.user!.id);
+  if (guard.error) {
+    return res.status(guard.error.status).json({ message: guard.error.message });
+  }
+
+  const title = String(req.body.title ?? "").trim();
+  const descriptionRaw = req.body.description;
+  const description =
+    descriptionRaw === null || descriptionRaw === undefined
+      ? null
+      : String(descriptionRaw).trim();
+  const type = String(req.body.type ?? "") as QuestionType;
+  const required = req.body.required === true || req.body.required === "true";
+  const orderValue = Number(req.body.order);
+  const order = Number.isFinite(orderValue) ? orderValue : 0;
+  const options = parseOptions(req.body.options);
+
+  if (!title) {
+    return res.status(400).json({ message: "Title is required" });
+  }
+  if (!QUESTION_TYPES.includes(type)) {
+    return res.status(400).json({ message: "Invalid question type" });
+  }
+  if (requiresOptions(type) && (!options || options.length === 0)) {
+    return res.status(400).json({ message: "Options are required for this type" });
+  }
+
+  const question = await prisma.question.create({
+    data: {
+      formId,
+      title,
+      description,
+      type,
+      required,
+      order,
+      options: requiresOptions(type)
+        ? {
+            create: (options ?? []).map((label, index) => ({
+              label,
+              order: index,
+            })),
+          }
+        : undefined,
+    },
+    include: { options: { orderBy: { order: "asc" } } },
+  });
+
+  return res.status(201).json({ data: question });
+};
+
+export const updateQuestion = async (req: Request, res: Response) => {
+  const questionId = String(req.params.id);
+  const question = await prisma.question.findUnique({
+    where: { id: questionId },
+    include: { form: true },
+  });
+  if (!question) {
+    return res.status(404).json({ message: "Question not found" });
+  }
+
+  const guard = await ensureEditableForm(question.formId, req.user!.id);
+  if (guard.error) {
+    return res.status(guard.error.status).json({ message: guard.error.message });
+  }
+
+  const data: {
+    title?: string;
+    description?: string | null;
+    type?: QuestionType;
+    required?: boolean;
+    order?: number;
+  } = {};
+
+  if (req.body.title !== undefined) {
+    const title = String(req.body.title ?? "").trim();
+    if (!title) {
+      return res.status(400).json({ message: "Title cannot be empty" });
+    }
+    data.title = title;
+  }
+  if (req.body.description !== undefined) {
+    data.description =
+      req.body.description === null ? null : String(req.body.description).trim();
+  }
+  if (req.body.type !== undefined) {
+    const type = String(req.body.type ?? "") as QuestionType;
+    if (!QUESTION_TYPES.includes(type)) {
+      return res.status(400).json({ message: "Invalid question type" });
+    }
+    data.type = type;
+  }
+  if (req.body.required !== undefined) {
+    data.required = req.body.required === true || req.body.required === "true";
+  }
+  if (req.body.order !== undefined) {
+    const orderValue = Number(req.body.order);
+    if (!Number.isFinite(orderValue)) {
+      return res.status(400).json({ message: "Invalid order value" });
+    }
+    data.order = orderValue;
+  }
+
+  const nextType = data.type ?? question.type;
+  const options = req.body.options === undefined ? null : parseOptions(req.body.options);
+
+  if (requiresOptions(nextType) && options !== null && options.length === 0) {
+    return res.status(400).json({ message: "Options are required for this type" });
+  }
+
+  const shouldResetOptions =
+    req.body.options !== undefined || !requiresOptions(nextType);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.question.update({
+      where: { id: questionId },
+      data: data,
+    });
+
+    if (shouldResetOptions) {
+      await tx.option.deleteMany({ where: { questionId } });
+      if (requiresOptions(nextType) && options && options.length > 0) {
+        await tx.option.createMany({
+          data: options.map((label, index) => ({
+            questionId,
+            label,
+            order: index,
+          })),
+        });
+      }
+    }
+
+    return tx.question.findUnique({
+      where: { id: questionId },
+      include: { options: { orderBy: { order: "asc" } } },
+    });
+  });
+
+  return res.json({ data: updated });
+};
+
+export const deleteQuestion = async (req: Request, res: Response) => {
+  const questionId = String(req.params.id);
+  const question = await prisma.question.findUnique({
+    where: { id: questionId },
+    include: { form: true },
+  });
+  if (!question) {
+    return res.status(404).json({ message: "Question not found" });
+  }
+
+  const guard = await ensureEditableForm(question.formId, req.user!.id);
+  if (guard.error) {
+    return res.status(guard.error.status).json({ message: guard.error.message });
+  }
+
+  await prisma.question.delete({ where: { id: questionId } });
+  return res.status(204).send();
+};

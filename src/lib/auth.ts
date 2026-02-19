@@ -1,9 +1,11 @@
 import bcrypt from "bcrypt";
 import jwt, { type JwtPayload } from "jsonwebtoken";
-import type { NextFunction, Request, Response } from "express";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const TOKEN_EXPIRES_IN = "7d";
+
+export const AUTH_COOKIE_NAME = "formsify_token";
+export const TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const requireJwtSecret = () => {
   if (!JWT_SECRET) {
@@ -25,29 +27,12 @@ export const signToken = (payload: { id: string; email: string }) =>
     expiresIn: TOKEN_EXPIRES_IN,
   });
 
-export const authRequired = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  const header = req.headers.authorization;
-  if (!header) {
-    return res.status(401).json({ message: "Missing Authorization header" });
-  }
+export const verifyToken = (token: string) =>
+  jwt.verify(token, requireJwtSecret()) as JwtPayload;
 
+export const getTokenFromAuthHeader = (header?: string | null) => {
+  if (!header) return null;
   const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) {
-    return res.status(401).json({ message: "Invalid Authorization format" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, requireJwtSecret()) as JwtPayload;
-    if (!decoded.sub || typeof decoded.sub !== "string") {
-      return res.status(401).json({ message: "Invalid token payload" });
-    }
-    req.user = { id: decoded.sub, email: String(decoded.email ?? "") };
-    return next();
-  } catch (error) {
-    return res.status(401).json({ message: "Invalid or expired token" });
-  }
+  if (scheme !== "Bearer" || !token) return null;
+  return token;
 };

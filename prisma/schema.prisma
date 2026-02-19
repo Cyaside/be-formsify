@@ -18,6 +18,13 @@ enum AuthProvider {
   GOOGLE
 }
 
+enum QuestionType {
+  SHORT_TEXT
+  MULTIPLE_CHOICE
+  CHECKBOX
+  DROPDOWN
+}
+
 model User {
   id           String       @id @default(uuid())
   email        String       @unique
@@ -32,13 +39,71 @@ model User {
 }
 
 model Form {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   title       String
   description String?
   ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  questions Question[]
+  responses Response[]
 
   @@index([ownerId])
+}
+
+model Question {
+  id          String       @id @default(uuid())
+  formId      String
+  form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  type        QuestionType
+  required    Boolean      @default(false)
+  order       Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  options Option[]
+  answers Answer[]
+
+  @@index([formId])
+}
+
+model Option {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([questionId])
+}
+
+model Response {
+  id        String   @id @default(uuid())
+  formId    String
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  answers Answer[]
+
+  @@index([formId])
+}
+
+model Answer {
+  id         String   @id @default(uuid())
+  responseId String
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  value      Json
+  createdAt  DateTime @default(now())
+
+  @@index([responseId])
+  @@index([questionId])
+  @@unique([responseId, questionId])
 }
