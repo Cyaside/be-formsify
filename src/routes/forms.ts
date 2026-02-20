@@ -8,7 +8,11 @@ import {
   updateForm,
 } from "../controllers/forms.controller";
 import { createQuestion, listQuestions } from "../controllers/questions.controller";
-import { getSummary, listResponses } from "../controllers/responses.controller";
+import {
+  deleteResponse,
+  getSummary,
+  listResponses,
+} from "../controllers/responses.controller";
 import { submitForm } from "../controllers/submissions.controller";
 import { authRequired } from "../middleware/authRequired";
 
@@ -20,6 +24,7 @@ router.get("/:id", getForm);
 router.get("/:id/questions", listQuestions);
 router.get("/:id/responses", authRequired, listResponses);
 router.get("/:id/summary", authRequired, getSummary);
+router.delete("/:id/responses/:responseId", authRequired, deleteResponse);
 router.post("/", authRequired, createForm);
 router.post("/:id/questions", authRequired, createQuestion);
 router.post("/:id/submit", submitForm);

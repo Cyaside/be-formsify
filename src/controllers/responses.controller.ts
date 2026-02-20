@@ -104,3 +104,26 @@ export const getSummary = async (req: Request, res: Response) => {
 
   return res.json({ data: summary, form: guard.form });
 };
+
+export const deleteResponse = async (req: Request, res: Response) => {
+  const formId = String(req.params.id);
+  const responseId = String(req.params.responseId);
+  const userId = String(req.user!.id);
+
+  const guard = await ensureOwner(formId, userId);
+  if (guard.error) {
+    return res.status(guard.error.status).json({ message: guard.error.message });
+  }
+
+  const responseRecord = await prisma.response.findUnique({
+    where: { id: responseId },
+    select: { id: true, formId: true },
+  });
+
+  if (responseRecord?.formId !== formId) {
+    return res.status(404).json({ message: "Response not found" });
+  }
+
+  await prisma.response.delete({ where: { id: responseId } });
+  return res.status(204).send();
+};
