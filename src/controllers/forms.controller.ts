@@ -21,8 +21,9 @@ export const listPublicForms = async (req: Request, res: Response) => {
   const skip = (page - 1) * limit;
 
   const [total, forms] = await Promise.all([
-    prisma.form.count(),
+    prisma.form.count({ where: { isPublished: true } }),
     prisma.form.findMany({
+      where: { isPublished: true },
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
@@ -51,6 +52,12 @@ export const getForm = async (req: Request, res: Response) => {
   if (!form) {
     return res.status(404).json({ message: "Form not found" });
   }
+
+  const isOwner = req.user?.id === form.ownerId;
+  if (!form.isPublished && !isOwner) {
+    return res.status(404).json({ message: "Form not found" });
+  }
+
   return res.json({ data: form });
 };
 
@@ -70,6 +77,7 @@ export const createForm = async (req: Request, res: Response) => {
     data: {
       title,
       description,
+      isPublished: false,
       ownerId: req.user!.id,
     },
     include: { owner: { select: { id: true, email: true, name: true } } },
@@ -87,7 +95,7 @@ export const updateForm = async (req: Request, res: Response) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const data: { title?: string; description?: string | null } = {};
+  const data: { title?: string; description?: string | null; isPublished?: boolean } = {};
   if (req.body.title !== undefined) {
     const title = String(req.body.title ?? "").trim();
     if (!title) {
@@ -98,6 +106,9 @@ export const updateForm = async (req: Request, res: Response) => {
   if (req.body.description !== undefined) {
     data.description =
       req.body.description === null ? null : String(req.body.description).trim();
+  }
+  if (req.body.isPublished !== undefined) {
+    data.isPublished = Boolean(req.body.isPublished);
   }
 
   if (Object.keys(data).length === 0) {

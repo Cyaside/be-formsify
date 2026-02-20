@@ -15,6 +15,81 @@ const parseOptions = (value: unknown) => {
   return labels;
 };
 
+type QuestionUpdateData = {
+  title?: string;
+  description?: string | null;
+  type?: QuestionType;
+  required?: boolean;
+  order?: number;
+};
+
+type ParsedQuestionUpdatePayload =
+  | { error: string }
+  | { data: QuestionUpdateData; nextType: QuestionType; options: string[] | null };
+
+const applyTitleUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
+  if (body.title === undefined) return null;
+  const title = String(body.title ?? "").trim();
+  if (!title) return "Title cannot be empty";
+  data.title = title;
+  return null;
+};
+
+const applyDescriptionUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
+  if (body.description === undefined) return;
+  data.description = body.description === null ? null : String(body.description).trim();
+};
+
+const applyTypeUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
+  if (body.type === undefined) return null;
+  const type = String(body.type ?? "") as QuestionType;
+  if (!QUESTION_TYPES.includes(type)) return "Invalid question type";
+  data.type = type;
+  return null;
+};
+
+const applyRequiredUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
+  if (body.required === undefined) return;
+  data.required = body.required === true || body.required === "true";
+};
+
+const applyOrderUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
+  if (body.order === undefined) return null;
+  const orderValue = Number(body.order);
+  if (!Number.isFinite(orderValue)) return "Invalid order value";
+  data.order = orderValue;
+  return null;
+};
+
+const parseQuestionUpdatePayload = (
+  body: Request["body"],
+  currentType: QuestionType,
+) : ParsedQuestionUpdatePayload => {
+  const data: QuestionUpdateData = {};
+
+  const titleError = applyTitleUpdate(data, body);
+  if (titleError) return { error: titleError };
+
+  applyDescriptionUpdate(data, body);
+
+  const typeError = applyTypeUpdate(data, body);
+  if (typeError) return { error: typeError };
+
+  applyRequiredUpdate(data, body);
+
+  const orderError = applyOrderUpdate(data, body);
+  if (orderError) return { error: orderError };
+
+  const nextType = data.type ?? currentType;
+  const options = body.options === undefined ? null : parseOptions(body.options);
+
+  if (requiresOptions(nextType) && options !== null && options.length === 0) {
+    return { error: "Options are required for this type" };
+  }
+
+  return { data, nextType, options };
+};
+
 const ensureEditableForm = async (formId: string, userId: string) => {
   const form = await prisma.form.findUnique({
     where: { id: formId },
@@ -42,6 +117,11 @@ export const listQuestions = async (req: Request, res: Response) => {
   const formId = String(req.params.id);
   const form = await prisma.form.findUnique({ where: { id: formId } });
   if (!form) {
+    return res.status(404).json({ message: "Form not found" });
+  }
+
+  const isOwner = req.user?.id === form.ownerId;
+  if (!form.isPublished && !isOwner) {
     return res.status(404).json({ message: "Form not found" });
   }
 
@@ -121,49 +201,12 @@ export const updateQuestion = async (req: Request, res: Response) => {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
 
-  const data: {
-    title?: string;
-    description?: string | null;
-    type?: QuestionType;
-    required?: boolean;
-    order?: number;
-  } = {};
-
-  if (req.body.title !== undefined) {
-    const title = String(req.body.title ?? "").trim();
-    if (!title) {
-      return res.status(400).json({ message: "Title cannot be empty" });
-    }
-    data.title = title;
-  }
-  if (req.body.description !== undefined) {
-    data.description =
-      req.body.description === null ? null : String(req.body.description).trim();
-  }
-  if (req.body.type !== undefined) {
-    const type = String(req.body.type ?? "") as QuestionType;
-    if (!QUESTION_TYPES.includes(type)) {
-      return res.status(400).json({ message: "Invalid question type" });
-    }
-    data.type = type;
-  }
-  if (req.body.required !== undefined) {
-    data.required = req.body.required === true || req.body.required === "true";
-  }
-  if (req.body.order !== undefined) {
-    const orderValue = Number(req.body.order);
-    if (!Number.isFinite(orderValue)) {
-      return res.status(400).json({ message: "Invalid order value" });
-    }
-    data.order = orderValue;
+  const parsed = parseQuestionUpdatePayload(req.body, question.type as QuestionType);
+  if ("error" in parsed) {
+    return res.status(400).json({ message: parsed.error });
   }
 
-  const nextType = data.type ?? question.type;
-  const options = req.body.options === undefined ? null : parseOptions(req.body.options);
-
-  if (requiresOptions(nextType) && options !== null && options.length === 0) {
-    return res.status(400).json({ message: "Options are required for this type" });
-  }
+  const { data, nextType, options } = parsed;
 
   const shouldResetOptions =
     req.body.options !== undefined || !requiresOptions(nextType);

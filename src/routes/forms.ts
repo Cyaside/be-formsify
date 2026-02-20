@@ -15,13 +15,14 @@ import {
 } from "../controllers/responses.controller";
 import { submitForm } from "../controllers/submissions.controller";
 import { authRequired } from "../middleware/authRequired";
+import { optionalAuth } from "../middleware/optionalAuth";
 
 const router = Router();
 
 router.get("/public", listPublicForms);
 router.get("/", authRequired, listForms);
-router.get("/:id", getForm);
-router.get("/:id/questions", listQuestions);
+router.get("/:id", optionalAuth, getForm);
+router.get("/:id/questions", optionalAuth, listQuestions);
 router.get("/:id/responses", authRequired, listResponses);
 router.get("/:id/summary", authRequired, getSummary);
 router.delete("/:id/responses/:responseId", authRequired, deleteResponse);
