@@ -12,14 +12,35 @@ export const listForms = async (req: Request, res: Response) => {
   return res.json({ data: forms });
 };
 
-export const listPublicForms = async (_req: Request, res: Response) => {
-  const forms = await prisma.form.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      owner: { select: { id: true, email: true, name: true } },
+export const listPublicForms = async (req: Request, res: Response) => {
+  const pageValue = Number(req.query.page);
+  const limitValue = Number(req.query.limit);
+  const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+  const limit =
+    Number.isFinite(limitValue) && limitValue > 0 ? Math.min(limitValue, 50) : 9;
+  const skip = (page - 1) * limit;
+
+  const [total, forms] = await Promise.all([
+    prisma.form.count(),
+    prisma.form.findMany({
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        owner: { select: { id: true, email: true, name: true } },
+      },
+    }),
+  ]);
+
+  return res.json({
+    data: forms,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     },
   });
-  return res.json({ data: forms });
 };
 
 export const getForm = async (req: Request, res: Response) => {

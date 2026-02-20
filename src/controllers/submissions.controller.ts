@@ -3,7 +3,8 @@ import prisma from "../lib/prisma";
 
 type AnswerPayload = {
   questionId: string;
-  value: unknown;
+  optionId?: unknown;
+  text?: unknown;
 };
 
 type Question = {
@@ -14,59 +15,13 @@ type Question = {
   options: Array<{ id: string }>;
 };
 
-const isNonEmptyString = (value: unknown) =>
-  typeof value === "string" && value.trim().length > 0;
+const normalizeText = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
 
-const isEmpty = (value: unknown): boolean =>
-  value === undefined ||
-  value === null ||
-  value === "" ||
-  (Array.isArray(value) && value.length === 0);
-
-const validateRequiredAnswer = (
-  question: Question,
-  value: unknown,
-): string | null => {
-  if (question.required && isEmpty(value)) {
-    return `Pertanyaan wajib belum dijawab: ${question.title}`;
-  }
-  return null;
-};
-
-const validateShortText = (
-  question: Question,
-  value: unknown,
-): { valid: boolean; processedValue?: string } => {
-  if (!isNonEmptyString(value)) {
-    return { valid: false };
-  }
-  return { valid: true, processedValue: String(value) };
-};
-
-const validateMultipleChoice = (
-  question: Question,
-  value: unknown,
-): { valid: boolean; processedValue?: string } => {
-  const optionIds = new Set(question.options.map((opt) => opt.id));
-  if (typeof value !== "string" || !optionIds.has(value)) {
-    return { valid: false };
-  }
-  return { valid: true, processedValue: value };
-};
-
-const validateCheckbox = (
-  question: Question,
-  value: unknown,
-): { valid: boolean; processedValue?: unknown[] } => {
-  if (!Array.isArray(value)) {
-    return { valid: false };
-  }
-  const optionIds = new Set(question.options.map((opt) => opt.id));
-  const selected = value.filter((item) => typeof item === "string");
-  if (selected.some((item) => !optionIds.has(item))) {
-    return { valid: false };
-  }
-  return { valid: true, processedValue: selected };
+const normalizeOptionId = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 };
 
 export const submitForm = async (req: Request, res: Response) => {
@@ -84,64 +39,77 @@ export const submitForm = async (req: Request, res: Response) => {
 
   const rawAnswers = Array.isArray(req.body.answers) ? req.body.answers : [];
   const answers = rawAnswers.filter(
-    (item: AnswerPayload) =>
-      item && typeof item.questionId === "string" && "value" in item,
+    (item: AnswerPayload) => item && typeof item.questionId === "string",
   ) as AnswerPayload[];
 
-  const answerMap = new Map<string, unknown>();
+  const answersByQuestion = new Map<string, AnswerPayload[]>();
   for (const answer of answers) {
-    answerMap.set(answer.questionId, answer.value);
+    const existing = answersByQuestion.get(answer.questionId) ?? [];
+    existing.push(answer);
+    answersByQuestion.set(answer.questionId, existing);
   }
 
-  const preparedAnswers: { questionId: string; value: unknown }[] = [];
+  const preparedAnswers: Array<{ questionId: string; optionId?: string; text?: string }> = [];
 
   for (const question of form.questions) {
-    const value = answerMap.get(question.id);
+    const entries = answersByQuestion.get(question.id) ?? [];
+    const optionSet = new Set(question.options.map((opt) => opt.id));
 
-    const requiredError = validateRequiredAnswer(question, value);
-    if (requiredError) {
-      return res.status(400).json({ message: requiredError });
-    }
+    if (question.type === "SHORT_ANSWER") {
+      const texts = entries
+        .map((entry) => normalizeText(entry.text))
+        .filter((text) => text.length > 0);
 
-    if (isEmpty(value)) {
+      if (question.required && texts.length === 0) {
+        return res.status(400).json({
+          message: `Pertanyaan wajib belum dijawab: ${question.title}`,
+        });
+      }
+      if (texts.length === 0) {
+        continue;
+      }
+
+      preparedAnswers.push({ questionId: question.id, text: texts[0] });
       continue;
     }
 
-    if (question.type === "SHORT_TEXT") {
-      const result = validateShortText(question, value);
-      if (!result.valid) {
-        return res.status(400).json({
-          message: `Jawaban tidak valid untuk pertanyaan: ${question.title}`,
-        });
-      }
-      preparedAnswers.push({
-        questionId: question.id,
-        value: result.processedValue,
+    const optionIds = entries
+      .map((entry) => normalizeOptionId(entry.optionId))
+      .filter((value): value is string => Boolean(value));
+
+    const invalidOption = optionIds.find((optionId) => !optionSet.has(optionId));
+    if (invalidOption) {
+      return res.status(400).json({
+        message: `Jawaban tidak valid untuk pertanyaan: ${question.title}`,
       });
-    } else if (
-      question.type === "MULTIPLE_CHOICE" ||
-      question.type === "DROPDOWN"
-    ) {
-      const result = validateMultipleChoice(question, value);
-      if (!result.valid) {
+    }
+
+    if (question.type === "MCQ" || question.type === "DROPDOWN") {
+      if (question.required && optionIds.length === 0) {
         return res.status(400).json({
-          message: `Jawaban tidak valid untuk pertanyaan: ${question.title}`,
+          message: `Pertanyaan wajib belum dijawab: ${question.title}`,
         });
       }
-      preparedAnswers.push({
-        questionId: question.id,
-        value: result.processedValue,
-      });
-    } else if (question.type === "CHECKBOX") {
-      const result = validateCheckbox(question, value);
-      if (!result.valid) {
+      if (optionIds.length === 0) {
+        continue;
+      }
+      preparedAnswers.push({ questionId: question.id, optionId: optionIds[0] });
+      continue;
+    }
+
+    if (question.type === "CHECKBOX") {
+      const uniqueOptionIds = Array.from(new Set(optionIds));
+      if (question.required && uniqueOptionIds.length === 0) {
         return res.status(400).json({
-          message: `Jawaban tidak valid untuk pertanyaan: ${question.title}`,
+          message: `Pertanyaan wajib belum dijawab: ${question.title}`,
         });
       }
-      preparedAnswers.push({
-        questionId: question.id,
-        value: result.processedValue,
+      if (uniqueOptionIds.length === 0) {
+        continue;
+      }
+
+      uniqueOptionIds.forEach((optionId) => {
+        preparedAnswers.push({ questionId: question.id, optionId });
       });
     }
   }
@@ -151,8 +119,9 @@ export const submitForm = async (req: Request, res: Response) => {
       formId: form.id,
       answers: {
         create: preparedAnswers.map((answer) => ({
-          value: JSON.parse(JSON.stringify(answer.value)),
-          question: { connect: { id: answer.questionId } },
+          questionId: answer.questionId,
+          optionId: answer.optionId,
+          text: answer.text,
         })),
       },
     },

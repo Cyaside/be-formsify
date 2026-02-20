@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
 import prisma from "../lib/prisma";
 
-const QUESTION_TYPES = ["SHORT_TEXT", "MULTIPLE_CHOICE", "CHECKBOX", "DROPDOWN"] as const;
+const QUESTION_TYPES = ["SHORT_ANSWER", "MCQ", "CHECKBOX", "DROPDOWN"] as const;
 type QuestionType = (typeof QUESTION_TYPES)[number];
 
 const requiresOptions = (type: QuestionType) =>
-  type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "DROPDOWN";
+  type === "MCQ" || type === "CHECKBOX" || type === "DROPDOWN";
 
 const parseOptions = (value: unknown) => {
   if (!Array.isArray(value)) return null;

@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "QuestionType" AS ENUM ('SHORT_TEXT', 'MULTIPLE_CHOICE', 'CHECKBOX', 'DROPDOWN');
+CREATE TYPE "QuestionType" AS ENUM ('SHORT_ANSWER', 'MCQ', 'CHECKBOX', 'DROPDOWN');
 
 -- CreateTable
 CREATE TABLE "Question" (
@@ -42,7 +42,8 @@ CREATE TABLE "Answer" (
     "id" TEXT NOT NULL,
     "responseId" TEXT NOT NULL,
     "questionId" TEXT NOT NULL,
-    "value" JSONB NOT NULL,
+    "optionId" TEXT,
+    "text" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Answer_pkey" PRIMARY KEY ("id")
@@ -64,7 +65,10 @@ CREATE INDEX "Answer_responseId_idx" ON "Answer"("responseId");
 CREATE INDEX "Answer_questionId_idx" ON "Answer"("questionId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Answer_responseId_questionId_key" ON "Answer"("responseId", "questionId");
+CREATE INDEX "Answer_optionId_idx" ON "Answer"("optionId");
+
+-- CreateIndex
+CREATE INDEX "Answer_responseId_questionId_idx" ON "Answer"("responseId", "questionId");
 
 -- AddForeignKey
 ALTER TABLE "Question" ADD CONSTRAINT "Question_formId_fkey" FOREIGN KEY ("formId") REFERENCES "Form"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -80,3 +84,6 @@ ALTER TABLE "Answer" ADD CONSTRAINT "Answer_responseId_fkey" FOREIGN KEY ("respo
 
 -- AddForeignKey
 ALTER TABLE "Answer" ADD CONSTRAINT "Answer_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "Question"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Answer" ADD CONSTRAINT "Answer_optionId_fkey" FOREIGN KEY ("optionId") REFERENCES "Option"("id") ON DELETE SET NULL ON UPDATE CASCADE;
