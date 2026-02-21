@@ -1,13 +1,39 @@
 import type { Request, Response } from "express";
+import type { Prisma } from "../generated/prisma/client";
 import prisma from "../lib/prisma";
 
 const DEFAULT_THANK_YOU_TITLE = "Terima kasih!";
 const DEFAULT_THANK_YOU_MESSAGE = "Respons kamu sudah terekam.";
 
 export const listForms = async (req: Request, res: Response) => {
+  const search =
+    typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const status =
+    typeof req.query.status === "string" ? req.query.status.trim().toLowerCase() : "all";
+  const sort =
+    typeof req.query.sort === "string" ? req.query.sort.trim().toLowerCase() : "newest";
+
+  const where: Prisma.FormWhereInput = { ownerId: req.user!.id };
+  if (status === "published") {
+    where.isPublished = true;
+  } else if (status === "draft") {
+    where.isPublished = false;
+  }
+
+  if (search) {
+    where.OR = [
+      { title: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const orderBy: Prisma.FormOrderByWithRelationInput = {
+    updatedAt: sort === "oldest" ? "asc" : "desc",
+  };
+
   const forms = await prisma.form.findMany({
-    where: { ownerId: req.user!.id },
-    orderBy: { createdAt: "desc" },
+    where,
+    orderBy,
     include: {
       owner: { select: { id: true, email: true, name: true } },
     },
