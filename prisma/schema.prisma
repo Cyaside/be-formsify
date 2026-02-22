@@ -50,16 +50,34 @@ model Form {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  sections  Section[]
   questions Question[]
   responses Response[]
 
   @@index([ownerId])
 }
 
+model Section {
+  id          String   @id @default(uuid())
+  formId      String
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions Question[]
+
+  @@index([formId])
+}
+
 model Question {
   id          String       @id @default(uuid())
   formId      String
   form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  sectionId   String
+  section     Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   title       String
   description String?
   type        QuestionType
@@ -72,6 +90,7 @@ model Question {
   answers Answer[]
 
   @@index([formId])
+  @@index([sectionId])
 }
 
 model Option {

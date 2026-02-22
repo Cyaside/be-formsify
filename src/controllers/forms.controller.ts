@@ -4,6 +4,7 @@ import prisma from "../lib/prisma";
 
 const DEFAULT_THANK_YOU_TITLE = "Terima kasih!";
 const DEFAULT_THANK_YOU_MESSAGE = "Respons kamu sudah terekam.";
+const DEFAULT_SECTION_TITLE = "Section 1";
 
 export const listForms = async (req: Request, res: Response) => {
   const search =
@@ -112,16 +113,28 @@ export const createForm = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Title is required" });
   }
 
-  const form = await prisma.form.create({
-    data: {
-      title,
-      description,
-      thankYouTitle,
-      thankYouMessage,
-      isPublished: false,
-      ownerId: req.user!.id,
-    },
-    include: { owner: { select: { id: true, email: true, name: true } } },
+  const form = await prisma.$transaction(async (tx) => {
+    const created = await tx.form.create({
+      data: {
+        title,
+        description,
+        thankYouTitle,
+        thankYouMessage,
+        isPublished: false,
+        ownerId: req.user!.id,
+      },
+      include: { owner: { select: { id: true, email: true, name: true } } },
+    });
+
+    await tx.section.create({
+      data: {
+        formId: created.id,
+        title: DEFAULT_SECTION_TITLE,
+        order: 0,
+      },
+    });
+
+    return created;
   });
 
   return res.status(201).json({ data: form });

@@ -21,6 +21,7 @@ type QuestionUpdateData = {
   type?: QuestionType;
   required?: boolean;
   order?: number;
+  sectionId?: string;
 };
 
 type ParsedQuestionUpdatePayload =
@@ -61,6 +62,14 @@ const applyOrderUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
   return null;
 };
 
+const applySectionUpdate = (data: QuestionUpdateData, body: Request["body"]) => {
+  if (body.sectionId === undefined) return;
+  const sectionId = String(body.sectionId ?? "").trim();
+  if (!sectionId) return "Invalid section";
+  data.sectionId = sectionId;
+  return null;
+};
+
 const parseQuestionUpdatePayload = (
   body: Request["body"],
   currentType: QuestionType,
@@ -80,6 +89,9 @@ const parseQuestionUpdatePayload = (
   const orderError = applyOrderUpdate(data, body);
   if (orderError) return { error: orderError };
 
+  const sectionError = applySectionUpdate(data, body);
+  if (sectionError) return { error: sectionError };
+
   const nextType = data.type ?? currentType;
   const options = body.options === undefined ? null : parseOptions(body.options);
 
@@ -88,6 +100,42 @@ const parseQuestionUpdatePayload = (
   }
 
   return { data, nextType, options };
+};
+
+const getDefaultSection = async (formId: string) => {
+  let section = await prisma.section.findFirst({
+    where: { formId },
+    orderBy: { order: "asc" },
+  });
+  if (!section) {
+    section = await prisma.section.create({
+      data: {
+        formId,
+        title: "Section 1",
+        order: 0,
+      },
+    });
+  }
+  return section;
+};
+
+const resolveSectionId = async (formId: string, rawSectionId?: unknown) => {
+  if (rawSectionId === undefined || rawSectionId === null) {
+    const fallback = await getDefaultSection(formId);
+    return { sectionId: fallback.id };
+  }
+  const sectionId = String(rawSectionId ?? "").trim();
+  if (!sectionId) {
+    return { error: "Invalid section" };
+  }
+  const section = await prisma.section.findUnique({
+    where: { id: sectionId },
+    select: { id: true, formId: true },
+  });
+  if (!section || section.formId !== formId) {
+    return { error: "Invalid section" };
+  }
+  return { sectionId: section.id };
 };
 
 const ensureEditableForm = async (formId: string, userId: string) => {
@@ -127,7 +175,7 @@ export const listQuestions = async (req: Request, res: Response) => {
 
   const questions = await prisma.question.findMany({
     where: { formId },
-    orderBy: { order: "asc" },
+    orderBy: [{ section: { order: "asc" } }, { order: "asc" }],
     include: { options: { orderBy: { order: "asc" } } },
   });
 
@@ -141,6 +189,11 @@ export const createQuestion = async (req: Request, res: Response) => {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
 
+  const resolvedSection = await resolveSectionId(formId, req.body.sectionId);
+  if ("error" in resolvedSection) {
+    return res.status(400).json({ message: resolvedSection.error });
+  }
+
   const title = String(req.body.title ?? "").trim();
   const descriptionRaw = req.body.description;
   const description =
@@ -150,7 +203,9 @@ export const createQuestion = async (req: Request, res: Response) => {
   const type = String(req.body.type ?? "") as QuestionType;
   const required = req.body.required === true || req.body.required === "true";
   const orderValue = Number(req.body.order);
-  const order = Number.isFinite(orderValue) ? orderValue : 0;
+  const order = Number.isFinite(orderValue)
+    ? orderValue
+    : await prisma.question.count({ where: { sectionId: resolvedSection.sectionId } });
   const options = parseOptions(req.body.options);
 
   if (!title) {
@@ -166,6 +221,7 @@ export const createQuestion = async (req: Request, res: Response) => {
   const question = await prisma.question.create({
     data: {
       formId,
+      sectionId: resolvedSection.sectionId,
       title,
       description,
       type,
@@ -207,6 +263,21 @@ export const updateQuestion = async (req: Request, res: Response) => {
   }
 
   const { data, nextType, options } = parsed;
+  const nextSectionId = data.sectionId ?? question.sectionId;
+
+  if (data.sectionId) {
+    const section = await prisma.section.findUnique({
+      where: { id: data.sectionId },
+      select: { id: true, formId: true },
+    });
+    if (!section || section.formId !== question.formId) {
+      return res.status(400).json({ message: "Invalid section" });
+    }
+  }
+
+  if (data.sectionId && data.sectionId !== question.sectionId && data.order === undefined) {
+    data.order = await prisma.question.count({ where: { sectionId: nextSectionId } });
+  }
 
   const shouldResetOptions =
     req.body.options !== undefined || !requiresOptions(nextType);

@@ -3,6 +3,7 @@ import authRouter from "./auth";
 import analyticsRouter from "./analytics";
 import formsRouter from "./forms";
 import questionsRouter from "./questions";
+import sectionsRouter from "./sections";
 import { login, register } from "../controllers/auth.controller";
 
 const router = Router();
@@ -18,5 +19,6 @@ router.use("/api/auth", authRouter);
 router.use("/api/analytics", analyticsRouter);
 router.use("/api/forms", formsRouter);
 router.use("/api/questions", questionsRouter);
+router.use("/api/sections", sectionsRouter);
 
 export default router;
