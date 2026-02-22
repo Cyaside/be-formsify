@@ -36,6 +36,35 @@ export const listResponses = async (req: Request, res: Response) => {
   return res.json({ data: responses, form: guard.form });
 };
 
+export const getResponseDetail = async (req: Request, res: Response) => {
+  const formId = String(req.params.id);
+  const responseId = String(req.params.responseId);
+  const userId = String(req.user!.id);
+  const guard = await ensureOwner(formId, userId);
+  if (guard.error) {
+    return res.status(guard.error.status).json({ message: guard.error.message });
+  }
+
+  const responseRecord = await prisma.response.findUnique({
+    where: { id: responseId },
+    include: {
+      answers: {
+        include: {
+          question: {
+            include: { options: { orderBy: { order: "asc" } } },
+          },
+        },
+      },
+    },
+  });
+
+  if (!responseRecord || responseRecord.formId !== formId) {
+    return res.status(404).json({ message: "Response not found" });
+  }
+
+  return res.json({ data: responseRecord, form: guard.form });
+};
+
 export const getSummary = async (req: Request, res: Response) => {
   const formId = String(req.params.id);
   const userId = String(req.user!.id);
