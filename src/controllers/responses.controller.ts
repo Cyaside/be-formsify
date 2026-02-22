@@ -23,17 +23,76 @@ export const listResponses = async (req: Request, res: Response) => {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
 
-  const responses = await prisma.response.findMany({
+  const rawPage = Number(req.query.page);
+  const rawLimit = Number(req.query.limit);
+  const usePagination = req.query.page !== undefined || req.query.limit !== undefined;
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 10;
+
+  const baseQuery = {
     where: { formId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "desc" as const },
     include: {
       answers: {
         include: { question: { include: { options: true } } },
       },
     },
+  };
+
+  if (!usePagination) {
+    const responses = await prisma.response.findMany(baseQuery);
+    return res.json({ data: responses, form: guard.form });
+  }
+
+  const skip = (page - 1) * limit;
+  const [total, responses] = await Promise.all([
+    prisma.response.count({ where: { formId } }),
+    prisma.response.findMany({
+      ...baseQuery,
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  return res.json({
+    data: responses,
+    form: guard.form,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    },
+  });
+};
+
+export const getResponseDetail = async (req: Request, res: Response) => {
+  const formId = String(req.params.id);
+  const responseId = String(req.params.responseId);
+  const userId = String(req.user!.id);
+  const guard = await ensureOwner(formId, userId);
+  if (guard.error) {
+    return res.status(guard.error.status).json({ message: guard.error.message });
+  }
+
+  const responseRecord = await prisma.response.findUnique({
+    where: { id: responseId },
+    include: {
+      answers: {
+        include: {
+          question: {
+            include: { options: { orderBy: { order: "asc" } } },
+          },
+        },
+      },
+    },
   });
 
-  return res.json({ data: responses, form: guard.form });
+  if (!responseRecord || responseRecord.formId !== formId) {
+    return res.status(404).json({ message: "Response not found" });
+  }
+
+  return res.json({ data: responseRecord, form: guard.form });
 };
 
 export const getSummary = async (req: Request, res: Response) => {

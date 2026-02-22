@@ -10,6 +10,7 @@ import {
 import { createQuestion, listQuestions } from "../controllers/questions.controller";
 import {
   deleteResponse,
+  getResponseDetail,
   getSummary,
   listResponses,
 } from "../controllers/responses.controller";
@@ -29,6 +30,7 @@ router.get("/:id", optionalAuth, getForm);
 router.get("/:id/questions", optionalAuth, listQuestions);
 router.get("/:id/sections", optionalAuth, listSections);
 router.get("/:id/responses", authRequired, listResponses);
+router.get("/:id/responses/:responseId", authRequired, getResponseDetail);
 router.get("/:id/summary", authRequired, getSummary);
 router.delete("/:id/responses/:responseId", authRequired, deleteResponse);
 router.post("/", authRequired, createForm);

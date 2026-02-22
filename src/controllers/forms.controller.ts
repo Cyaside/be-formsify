@@ -183,6 +183,17 @@ export const updateForm = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "No fields to update" });
   }
 
+  if (data.isPublished === true) {
+    const questionCount = await prisma.question.count({
+      where: { formId: form.id },
+    });
+    if (questionCount <= 0) {
+      return res.status(400).json({
+        message: "Form harus memiliki minimal satu pertanyaan sebelum dipublish.",
+      });
+    }
+  }
+
   const updated = await prisma.form.update({
     where: { id: String(req.params.id) },
     data,
