@@ -11,10 +11,20 @@ import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
 
-const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+const defaultOrigin = "http://localhost:3000";
+const corsOrigins = (process.env.CORS_ORIGIN ?? defaultOrigin)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
 app.use(
   cors({
-    origin: corsOrigin,
+    origin: (origin, callback) => {
+      // Allow non-browser requests (no origin) and known origins.
+      if (!origin || corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
