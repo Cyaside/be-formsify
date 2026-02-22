@@ -45,6 +45,8 @@ model Form {
   thankYouTitle   String   @default("Thankyou")
   thankYouMessage String   @default("for using formsify")
   isPublished     Boolean  @default(false)
+  isClosed        Boolean  @default(false)
+  responseLimit   Int?
   ownerId         String
   owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt       DateTime @default(now())
