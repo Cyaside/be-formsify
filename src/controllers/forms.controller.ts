@@ -5,6 +5,32 @@ import prisma from "../lib/prisma";
 const DEFAULT_THANK_YOU_TITLE = "Terima kasih!";
 const DEFAULT_THANK_YOU_MESSAGE = "Respons kamu sudah terekam.";
 const DEFAULT_SECTION_TITLE = "Section 1";
+const MAX_RESPONSE_LIMIT = 100_000;
+
+const parseOptionalResponseLimit = (value: unknown) => {
+  if (value === undefined) {
+    return { provided: false as const, value: undefined as number | null | undefined };
+  }
+  if (value === null || value === "") {
+    return { provided: true as const, value: null };
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return {
+      provided: true as const,
+      error: "responseLimit harus berupa angka bulat positif.",
+    };
+  }
+  if (parsed > MAX_RESPONSE_LIMIT) {
+    return {
+      provided: true as const,
+      error: `responseLimit maksimal ${MAX_RESPONSE_LIMIT}.`,
+    };
+  }
+
+  return { provided: true as const, value: parsed };
+};
 
 export const listForms = async (req: Request, res: Response) => {
   const search =
@@ -77,7 +103,10 @@ export const listPublicForms = async (req: Request, res: Response) => {
 export const getForm = async (req: Request, res: Response) => {
   const form = await prisma.form.findUnique({
     where: { id: String(req.params.id) },
-    include: { owner: { select: { id: true, email: true, name: true } } },
+    include: {
+      owner: { select: { id: true, email: true, name: true } },
+      _count: { select: { responses: true } },
+    },
   });
   if (!form) {
     return res.status(404).json({ message: "Form not found" });
@@ -88,7 +117,12 @@ export const getForm = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Form not found" });
   }
 
-  return res.json({ data: form });
+  return res.json({
+    data: {
+      ...form,
+      responseCount: form._count.responses,
+    },
+  });
 };
 
 export const createForm = async (req: Request, res: Response) => {
@@ -108,6 +142,11 @@ export const createForm = async (req: Request, res: Response) => {
     typeof thankYouMessageRaw === "string" && thankYouMessageRaw.trim().length > 0
       ? thankYouMessageRaw.trim()
       : DEFAULT_THANK_YOU_MESSAGE;
+  const responseLimitResult = parseOptionalResponseLimit(req.body.responseLimit);
+  if ("error" in responseLimitResult) {
+    return res.status(400).json({ message: responseLimitResult.error });
+  }
+  const isClosed = req.body.isClosed === undefined ? false : Boolean(req.body.isClosed);
 
   if (!title) {
     return res.status(400).json({ message: "Title is required" });
@@ -121,6 +160,8 @@ export const createForm = async (req: Request, res: Response) => {
         thankYouTitle,
         thankYouMessage,
         isPublished: false,
+        isClosed,
+        responseLimit: responseLimitResult.provided ? responseLimitResult.value : null,
         ownerId: req.user!.id,
       },
       include: { owner: { select: { id: true, email: true, name: true } } },
@@ -155,6 +196,8 @@ export const updateForm = async (req: Request, res: Response) => {
     thankYouTitle?: string;
     thankYouMessage?: string;
     isPublished?: boolean;
+    isClosed?: boolean;
+    responseLimit?: number | null;
   } = {};
   if (req.body.title !== undefined) {
     const title = String(req.body.title ?? "").trim();
@@ -177,6 +220,16 @@ export const updateForm = async (req: Request, res: Response) => {
   }
   if (req.body.isPublished !== undefined) {
     data.isPublished = Boolean(req.body.isPublished);
+  }
+  if (req.body.isClosed !== undefined) {
+    data.isClosed = Boolean(req.body.isClosed);
+  }
+  const responseLimitResult = parseOptionalResponseLimit(req.body.responseLimit);
+  if ("error" in responseLimitResult) {
+    return res.status(400).json({ message: responseLimitResult.error });
+  }
+  if (responseLimitResult.provided) {
+    data.responseLimit = responseLimitResult.value;
   }
 
   if (Object.keys(data).length === 0) {

@@ -10,17 +10,32 @@ import routes from "./routes";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 const defaultOrigin = "http://localhost:3000";
+const unwrapEnvString = (value: string) => {
+  const trimmed = value.trim();
+  if (
+    trimmed.length >= 2 &&
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+};
+const normalizeOrigin = (origin: string) => unwrapEnvString(origin).replace(/\/+$/, "");
 const corsOrigins = (process.env.CORS_ORIGIN ?? defaultOrigin)
   .split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter((origin) => origin.length > 0);
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow non-browser requests (no origin) and known origins.
-      if (!origin || corsOrigins.includes(origin)) {
+      if (!origin || corsOrigins.includes(normalizeOrigin(origin))) {
         return callback(null, true);
       }
       return callback(new Error("Not allowed by CORS"));

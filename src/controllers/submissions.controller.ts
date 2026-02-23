@@ -122,6 +122,20 @@ export const submitForm = async (req: Request, res: Response) => {
   if (!form.isPublished) {
     return res.status(404).json({ message: "Form not found" });
   }
+  if (form.isClosed) {
+    return res.status(409).json({ message: "Form ini sudah ditutup dan tidak menerima respons." });
+  }
+
+  if (typeof form.responseLimit === "number") {
+    const totalResponses = await prisma.response.count({
+      where: { formId: form.id },
+    });
+    if (totalResponses >= form.responseLimit) {
+      return res.status(409).json({
+        message: `Batas respons form ini sudah tercapai (${form.responseLimit}).`,
+      });
+    }
+  }
 
   const rawAnswers = Array.isArray(req.body.answers) ? req.body.answers : [];
   const answers = rawAnswers.filter(
