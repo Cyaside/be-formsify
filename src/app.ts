@@ -8,6 +8,11 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yaml";
 import routes from "./routes";
 import { errorHandler } from "./middleware/errorHandler";
+import { securityHeaders } from "./middleware/securityHeaders";
+import { rateLimitAllRequests } from "./middleware/rateLimit";
+import { validateRuntimeSecurityConfig } from "./lib/config";
+
+validateRuntimeSecurityConfig();
 
 const app = express();
 if (process.env.NODE_ENV === "production") {
@@ -44,7 +49,9 @@ app.use(
   }),
 );
 app.use(cookieParser());
-app.use(express.json());
+app.use(securityHeaders);
+app.use(express.json({ limit: "100kb", strict: true }));
+app.use(rateLimitAllRequests);
 
 app.use(routes);
 
