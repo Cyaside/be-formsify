@@ -106,6 +106,7 @@ export const schemas = {
     description: optionalStringOrNull(MAX_TEXT_LONG),
     thankYouTitle: optionalLooseString(MAX_TEXT_SHORT),
     thankYouMessage: optionalLooseString(MAX_TEXT_LONG),
+    isPublished: optionalBool(),
     responseLimit: v.optional(v.nullable(v.number({ integer: true, min: 1, max: 100_000 }))),
     isClosed: optionalBool(),
   }),
