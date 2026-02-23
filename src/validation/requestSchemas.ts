@@ -35,7 +35,6 @@ const optionalInt = (min: number, max: number) =>
 const optionLabelParser = v.string({ maxLength: MAX_TEXT_SHORT, allowEmpty: false });
 
 const optionsArrayParser = v.array(optionLabelParser, {
-  minLength: 1,
   maxLength: MAX_OPTIONS,
 });
 
