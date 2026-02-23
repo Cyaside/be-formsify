@@ -229,6 +229,16 @@ export const updateForm = async (req: Request, res: Response) => {
     return res.status(400).json({ message: responseLimitResult.error });
   }
   if (responseLimitResult.provided) {
+    if (typeof responseLimitResult.value === "number") {
+      const currentResponseCount = await prisma.response.count({
+        where: { formId: form.id },
+      });
+      if (responseLimitResult.value < currentResponseCount) {
+        return res.status(400).json({
+          message: `responseLimit cannot be less than current responses (${currentResponseCount}).`,
+        });
+      }
+    }
     data.responseLimit = responseLimitResult.value;
   }
 

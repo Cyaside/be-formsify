@@ -138,7 +138,7 @@ const resolveSectionId = async (formId: string, rawSectionId?: unknown) => {
   return { sectionId: section.id };
 };
 
-const ensureEditableForm = async (formId: string, userId: string) => {
+const ensureOwnedForm = async (formId: string, userId: string) => {
   const form = await prisma.form.findUnique({
     where: { id: formId },
     select: { id: true, ownerId: true },
@@ -149,16 +149,30 @@ const ensureEditableForm = async (formId: string, userId: string) => {
   if (form.ownerId !== userId) {
     return { error: { status: 403, message: "Forbidden" } };
   }
-  const responseCount = await prisma.response.count({ where: { formId } });
-  if (responseCount > 0) {
+  return { form };
+};
+
+const ensureEditableQuestion = async (
+  question: { id: string; formId: string; form: { ownerId: string } },
+  userId: string,
+) => {
+  if (question.form.ownerId !== userId) {
+    return { error: { status: 403, message: "Forbidden" } };
+  }
+
+  const answerCount = await prisma.answer.count({
+    where: { questionId: question.id },
+  });
+  if (answerCount > 0) {
     return {
       error: {
         status: 409,
-        message: "This form already has responses and can no longer be modified.",
+        message: "This question already has responses and can no longer be modified.",
       },
     };
   }
-  return { form };
+
+  return { ok: true as const };
 };
 
 export const listQuestions = async (req: Request, res: Response) => {
@@ -184,7 +198,7 @@ export const listQuestions = async (req: Request, res: Response) => {
 
 export const createQuestion = async (req: Request, res: Response) => {
   const formId = String(req.params.id);
-  const guard = await ensureEditableForm(formId, req.user!.id);
+  const guard = await ensureOwnedForm(formId, req.user!.id);
   if (guard.error) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
@@ -252,7 +266,7 @@ export const updateQuestion = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Question not found" });
   }
 
-  const guard = await ensureEditableForm(question.formId, req.user!.id);
+  const guard = await ensureEditableQuestion(question, req.user!.id);
   if (guard.error) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
@@ -320,7 +334,7 @@ export const deleteQuestion = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Question not found" });
   }
 
-  const guard = await ensureEditableForm(question.formId, req.user!.id);
+  const guard = await ensureEditableQuestion(question, req.user!.id);
   if (guard.error) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
