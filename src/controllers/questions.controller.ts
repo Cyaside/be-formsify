@@ -154,7 +154,7 @@ const ensureEditableForm = async (formId: string, userId: string) => {
     return {
       error: {
         status: 409,
-        message: "Form sudah memiliki respons dan tidak bisa diubah.",
+        message: "This form already has responses and can no longer be modified.",
       },
     };
   }

@@ -11,19 +11,12 @@ export const validateRequest = (schemas: RequestSchemas) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       if (schemas.params) {
-        const parsedParams = schemas.params(req.params, "params") as Request["params"];
-        Object.keys(req.params).forEach((key) => {
-          delete (req.params as Record<string, unknown>)[key];
-        });
-        Object.assign(req.params, parsedParams);
+        // Express 5 may expose params/query objects with internal invariants.
+        // Validate them without mutating the original request object.
+        schemas.params(req.params, "params");
       }
       if (schemas.query) {
-        const parsedQuery = schemas.query(req.query, "query") as Record<string, unknown>;
-        const queryTarget = req.query as Record<string, unknown>;
-        Object.keys(queryTarget).forEach((key) => {
-          delete queryTarget[key];
-        });
-        Object.assign(queryTarget, parsedQuery);
+        schemas.query(req.query, "query");
       }
       if (schemas.body) {
         const rawBody = req.body === undefined ? {} : req.body;

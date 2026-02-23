@@ -27,10 +27,10 @@ const normalizeOptionId = (value: unknown) => {
 };
 
 const requiredQuestionMessage = (questionTitle: string) =>
-  `Pertanyaan wajib belum dijawab: ${questionTitle}`;
+  `Required question not answered: ${questionTitle}`;
 
 const invalidAnswerMessage = (questionTitle: string) =>
-  `Jawaban tidak valid untuk pertanyaan: ${questionTitle}`;
+  `Invalid answer for question: ${questionTitle}`;
 
 const toOptionIds = (entries: AnswerPayload[]) =>
   entries
@@ -123,7 +123,9 @@ export const submitForm = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Form not found" });
   }
   if (form.isClosed) {
-    return res.status(409).json({ message: "Form ini sudah ditutup dan tidak menerima respons." });
+    return res
+      .status(409)
+      .json({ message: "This form is closed and no longer accepts responses." });
   }
 
   if (typeof form.responseLimit === "number") {
@@ -132,7 +134,7 @@ export const submitForm = async (req: Request, res: Response) => {
     });
     if (totalResponses >= form.responseLimit) {
       return res.status(409).json({
-        message: `Batas respons form ini sudah tercapai (${form.responseLimit}).`,
+        message: `This form has reached its response limit (${form.responseLimit}).`,
       });
     }
   }

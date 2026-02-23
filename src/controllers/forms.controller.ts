@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import type { Prisma } from "../generated/prisma/client";
 import prisma from "../lib/prisma";
 
-const DEFAULT_THANK_YOU_TITLE = "Terima kasih!";
-const DEFAULT_THANK_YOU_MESSAGE = "Respons kamu sudah terekam.";
+const DEFAULT_THANK_YOU_TITLE = "Thank you!";
+const DEFAULT_THANK_YOU_MESSAGE = "Your response has been recorded.";
 const DEFAULT_SECTION_TITLE = "Section 1";
 const MAX_RESPONSE_LIMIT = 100_000;
 
@@ -19,13 +19,13 @@ const parseOptionalResponseLimit = (value: unknown) => {
   if (!Number.isInteger(parsed) || parsed <= 0) {
     return {
       provided: true as const,
-      error: "responseLimit harus berupa angka bulat positif.",
+      error: "responseLimit must be a positive integer.",
     };
   }
   if (parsed > MAX_RESPONSE_LIMIT) {
     return {
       provided: true as const,
-      error: `responseLimit maksimal ${MAX_RESPONSE_LIMIT}.`,
+      error: `responseLimit maximum is ${MAX_RESPONSE_LIMIT}.`,
     };
   }
 
@@ -242,7 +242,7 @@ export const updateForm = async (req: Request, res: Response) => {
     });
     if (questionCount <= 0) {
       return res.status(400).json({
-        message: "Form harus memiliki minimal satu pertanyaan sebelum dipublish.",
+        message: "A form must have at least one question before publishing.",
       });
     }
   }

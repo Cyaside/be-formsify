@@ -19,7 +19,7 @@ const ensureEditableForm = async (formId: string, userId: string) => {
     return {
       error: {
         status: 409,
-        message: "Form sudah memiliki respons dan tidak bisa diubah.",
+        message: "This form already has responses and can no longer be modified.",
       },
     };
   }
@@ -151,12 +151,12 @@ export const deleteSection = async (req: Request, res: Response) => {
 
   const sectionCount = await prisma.section.count({ where: { formId: section.formId } });
   if (sectionCount <= 1) {
-    return res.status(400).json({ message: "Form harus memiliki minimal satu section." });
+    return res.status(400).json({ message: "A form must have at least one section." });
   }
 
   const questionCount = await prisma.question.count({ where: { sectionId } });
   if (questionCount > 0) {
-    return res.status(409).json({ message: "Section masih memiliki pertanyaan." });
+    return res.status(409).json({ message: "This section still contains questions." });
   }
 
   await prisma.section.delete({ where: { id: sectionId } });
