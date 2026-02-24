@@ -3,7 +3,7 @@ import prisma from "../lib/prisma";
 
 const DEFAULT_SECTION_TITLE = "Section 1";
 
-const ensureEditableForm = async (formId: string, userId: string) => {
+const ensureOwnedForm = async (formId: string, userId: string) => {
   const form = await prisma.form.findUnique({
     where: { id: formId },
     select: { id: true, ownerId: true },
@@ -14,16 +14,34 @@ const ensureEditableForm = async (formId: string, userId: string) => {
   if (form.ownerId !== userId) {
     return { error: { status: 403, message: "Forbidden" } };
   }
-  const responseCount = await prisma.response.count({ where: { formId } });
-  if (responseCount > 0) {
+  return { form };
+};
+
+const ensureEditableSection = async (
+  section: { id: string; formId: string; form: { ownerId: string } },
+  userId: string,
+) => {
+  if (section.form.ownerId !== userId) {
+    return { error: { status: 403, message: "Forbidden" } };
+  }
+
+  const answerCount = await prisma.answer.count({
+    where: {
+      question: {
+        sectionId: section.id,
+      },
+    },
+  });
+  if (answerCount > 0) {
     return {
       error: {
         status: 409,
-        message: "Form sudah memiliki respons dan tidak bisa diubah.",
+        message: "This section already has responses and can no longer be modified.",
       },
     };
   }
-  return { form };
+
+  return { ok: true as const };
 };
 
 const ensureReadableForm = async (formId: string, userId?: string | null) => {
@@ -58,7 +76,7 @@ export const listSections = async (req: Request, res: Response) => {
 
 export const createSection = async (req: Request, res: Response) => {
   const formId = String(req.params.id);
-  const guard = await ensureEditableForm(formId, req.user!.id);
+  const guard = await ensureOwnedForm(formId, req.user!.id);
   if (guard.error) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
@@ -96,7 +114,7 @@ export const updateSection = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Section not found" });
   }
 
-  const guard = await ensureEditableForm(section.formId, req.user!.id);
+  const guard = await ensureEditableSection(section, req.user!.id);
   if (guard.error) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
@@ -144,19 +162,19 @@ export const deleteSection = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Section not found" });
   }
 
-  const guard = await ensureEditableForm(section.formId, req.user!.id);
+  const guard = await ensureEditableSection(section, req.user!.id);
   if (guard.error) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
 
   const sectionCount = await prisma.section.count({ where: { formId: section.formId } });
   if (sectionCount <= 1) {
-    return res.status(400).json({ message: "Form harus memiliki minimal satu section." });
+    return res.status(400).json({ message: "A form must have at least one section." });
   }
 
   const questionCount = await prisma.question.count({ where: { sectionId } });
   if (questionCount > 0) {
-    return res.status(409).json({ message: "Section masih memiliki pertanyaan." });
+    return res.status(409).json({ message: "This section still contains questions." });
   }
 
   await prisma.section.delete({ where: { id: sectionId } });

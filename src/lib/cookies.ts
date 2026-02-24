@@ -27,7 +27,7 @@ const getSameSite = (): CookieOptions["sameSite"] => {
   if (configured === "lax" || configured === "strict" || configured === "none") {
     return configured;
   }
-  // Railway FE/BE biasanya beda domain, jadi cookie harus cross-site.
+  // On Railway, FE/BE are often on different domains, so cookies must be cross-site.
   return process.env.NODE_ENV === "production" ? "none" : "lax";
 };
 
