@@ -12,6 +12,36 @@ const unwrapEnvString = (value?: string) => {
 };
 
 const hasValue = (value?: string) => Boolean(unwrapEnvString(value));
+const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
+const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
+
+const parseBooleanEnv = (value?: string) => {
+  const normalized = unwrapEnvString(value);
+  if (!normalized) {
+    return { provided: false as const, value: false };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (TRUE_VALUES.has(lower)) {
+    return { provided: true as const, value: true };
+  }
+  if (FALSE_VALUES.has(lower)) {
+    return { provided: true as const, value: false };
+  }
+
+  return {
+    provided: true as const,
+    error: `Invalid boolean value "${normalized}"`,
+  };
+};
+
+export const isFormCollabEnabled = () => {
+  const parsed = parseBooleanEnv(process.env.ENABLE_FORM_COLLAB);
+  if ("error" in parsed) {
+    return false;
+  }
+  return parsed.value;
+};
 
 export const validateRuntimeSecurityConfig = () => {
   const issues: string[] = [];
@@ -32,6 +62,13 @@ export const validateRuntimeSecurityConfig = () => {
   if (enabledGoogleFields > 0 && enabledGoogleFields < googleConfigValues.length) {
     issues.push(
       "Google OAuth config is partial. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI together",
+    );
+  }
+
+  const formCollabFlag = parseBooleanEnv(process.env.ENABLE_FORM_COLLAB);
+  if ("error" in formCollabFlag) {
+    issues.push(
+      `${formCollabFlag.error} for ENABLE_FORM_COLLAB (allowed: true/false/1/0/yes/no/on/off)`,
     );
   }
 
