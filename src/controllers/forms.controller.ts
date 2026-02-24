@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { Prisma } from "../generated/prisma/client";
+import { canEditForm, canManageCollaborators, canReadForm } from "../lib/formAccess";
 import prisma from "../lib/prisma";
 
 const DEFAULT_THANK_YOU_TITLE = "Thank you!";
@@ -101,19 +102,20 @@ export const listPublicForms = async (req: Request, res: Response) => {
 };
 
 export const getForm = async (req: Request, res: Response) => {
+  const formId = String(req.params.id);
+  const access = await canReadForm(req.user?.id ?? null, formId);
+  if (!access.ok) {
+    return res.status(access.error.status).json({ message: access.error.message });
+  }
+
   const form = await prisma.form.findUnique({
-    where: { id: String(req.params.id) },
+    where: { id: formId },
     include: {
       owner: { select: { id: true, email: true, name: true } },
       _count: { select: { responses: true } },
     },
   });
   if (!form) {
-    return res.status(404).json({ message: "Form not found" });
-  }
-
-  const isOwner = req.user?.id === form.ownerId;
-  if (!form.isPublished && !isOwner) {
     return res.status(404).json({ message: "Form not found" });
   }
 
@@ -182,12 +184,15 @@ export const createForm = async (req: Request, res: Response) => {
 };
 
 export const updateForm = async (req: Request, res: Response) => {
-  const form = await prisma.form.findUnique({ where: { id: String(req.params.id) } });
+  const formId = String(req.params.id);
+  const access = await canEditForm(req.user!.id, formId);
+  if (!access.ok) {
+    return res.status(access.error.status).json({ message: access.error.message });
+  }
+
+  const form = await prisma.form.findUnique({ where: { id: formId } });
   if (!form) {
     return res.status(404).json({ message: "Form not found" });
-  }
-  if (form.ownerId !== req.user!.id) {
-    return res.status(403).json({ message: "Forbidden" });
   }
 
   const data: {
@@ -258,7 +263,7 @@ export const updateForm = async (req: Request, res: Response) => {
   }
 
   const updated = await prisma.form.update({
-    where: { id: String(req.params.id) },
+    where: { id: formId },
     data,
     include: { owner: { select: { id: true, email: true, name: true } } },
   });
@@ -267,14 +272,17 @@ export const updateForm = async (req: Request, res: Response) => {
 };
 
 export const deleteForm = async (req: Request, res: Response) => {
-  const form = await prisma.form.findUnique({ where: { id: String(req.params.id) } });
+  const formId = String(req.params.id);
+  const access = await canManageCollaborators(req.user!.id, formId);
+  if (!access.ok) {
+    return res.status(access.error.status).json({ message: access.error.message });
+  }
+
+  const form = await prisma.form.findUnique({ where: { id: formId } });
   if (!form) {
     return res.status(404).json({ message: "Form not found" });
   }
-  if (form.ownerId !== req.user!.id) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
 
-  await prisma.form.delete({ where: { id: String(req.params.id) } });
+  await prisma.form.delete({ where: { id: formId } });
   return res.status(204).send();
 };

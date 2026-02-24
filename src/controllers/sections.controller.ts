@@ -1,29 +1,15 @@
 import type { Request, Response } from "express";
+import { canEditForm, canReadForm } from "../lib/formAccess";
 import prisma from "../lib/prisma";
 
 const DEFAULT_SECTION_TITLE = "Section 1";
 
-const ensureOwnedForm = async (formId: string, userId: string) => {
-  const form = await prisma.form.findUnique({
-    where: { id: formId },
-    select: { id: true, ownerId: true },
-  });
-  if (!form) {
-    return { error: { status: 404, message: "Form not found" } };
-  }
-  if (form.ownerId !== userId) {
-    return { error: { status: 403, message: "Forbidden" } };
-  }
-  return { form };
-};
-
 const ensureEditableSection = async (
-  section: { id: string; formId: string; form: { ownerId: string } },
+  section: { id: string; formId: string },
   userId: string,
 ) => {
-  if (section.form.ownerId !== userId) {
-    return { error: { status: 403, message: "Forbidden" } };
-  }
+  const access = await canEditForm(userId, section.formId);
+  if (!access.ok) return { error: access.error };
 
   const answerCount = await prisma.answer.count({
     where: {
@@ -44,25 +30,10 @@ const ensureEditableSection = async (
   return { ok: true as const };
 };
 
-const ensureReadableForm = async (formId: string, userId?: string | null) => {
-  const form = await prisma.form.findUnique({
-    where: { id: formId },
-    select: { id: true, ownerId: true, isPublished: true },
-  });
-  if (!form) {
-    return { error: { status: 404, message: "Form not found" } };
-  }
-  const isOwner = userId && form.ownerId === userId;
-  if (!form.isPublished && !isOwner) {
-    return { error: { status: 404, message: "Form not found" } };
-  }
-  return { form };
-};
-
 export const listSections = async (req: Request, res: Response) => {
   const formId = String(req.params.id);
-  const guard = await ensureReadableForm(formId, req.user?.id ?? null);
-  if (guard.error) {
+  const guard = await canReadForm(req.user?.id ?? null, formId);
+  if (!guard.ok) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
 
@@ -76,8 +47,8 @@ export const listSections = async (req: Request, res: Response) => {
 
 export const createSection = async (req: Request, res: Response) => {
   const formId = String(req.params.id);
-  const guard = await ensureOwnedForm(formId, req.user!.id);
-  if (guard.error) {
+  const guard = await canEditForm(req.user!.id, formId);
+  if (!guard.ok) {
     return res.status(guard.error.status).json({ message: guard.error.message });
   }
 
@@ -108,7 +79,7 @@ export const updateSection = async (req: Request, res: Response) => {
   const sectionId = String(req.params.id);
   const section = await prisma.section.findUnique({
     where: { id: sectionId },
-    include: { form: true },
+    select: { id: true, formId: true },
   });
   if (!section) {
     return res.status(404).json({ message: "Section not found" });
@@ -156,7 +127,7 @@ export const deleteSection = async (req: Request, res: Response) => {
   const sectionId = String(req.params.id);
   const section = await prisma.section.findUnique({
     where: { id: sectionId },
-    include: { form: true },
+    select: { id: true, formId: true },
   });
   if (!section) {
     return res.status(404).json({ message: "Section not found" });
