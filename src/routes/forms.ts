@@ -1,5 +1,11 @@
 import { Router } from "express";
 import {
+  createCollaborator,
+  deleteCollaborator,
+  listCollaborators,
+  updateCollaborator,
+} from "../controllers/collaborators.controller";
+import {
   createForm,
   deleteForm,
   getForm,
@@ -20,6 +26,7 @@ import {
 } from "../controllers/sections.controller";
 import { submitForm } from "../controllers/submissions.controller";
 import { authRequired } from "../middleware/authRequired";
+import { requireFormCollabEnabled } from "../middleware/featureFlags";
 import { optionalAuth } from "../middleware/optionalAuth";
 import { validateRequest } from "../middleware/validateRequest";
 import { schemas } from "../validation/requestSchemas";
@@ -82,6 +89,34 @@ router.post(
   validateRequest({ params: schemas.idParams, body: schemas.createSectionBody }),
   authRequired,
   createSection,
+);
+router.get(
+  "/:id/collaborators",
+  validateRequest({ params: schemas.idParams, query: schemas.emptyQuery }),
+  authRequired,
+  requireFormCollabEnabled,
+  listCollaborators,
+);
+router.post(
+  "/:id/collaborators",
+  validateRequest({ params: schemas.idParams, body: schemas.createCollaboratorBody }),
+  authRequired,
+  requireFormCollabEnabled,
+  createCollaborator,
+);
+router.patch(
+  "/:id/collaborators/:userId",
+  validateRequest({ params: schemas.idAndUserIdParams, body: schemas.updateCollaboratorBody }),
+  authRequired,
+  requireFormCollabEnabled,
+  updateCollaborator,
+);
+router.delete(
+  "/:id/collaborators/:userId",
+  validateRequest({ params: schemas.idAndUserIdParams, query: schemas.emptyQuery }),
+  authRequired,
+  requireFormCollabEnabled,
+  deleteCollaborator,
 );
 router.post(
   "/:id/submit",

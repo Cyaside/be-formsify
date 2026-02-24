@@ -18,7 +18,19 @@ const idAndResponseParams = strictObject({
   responseId: v.id(),
 });
 
+const idAndUserIdParams = strictObject({
+  id: v.id(),
+  userId: v.id(),
+});
+
 const sectionIdOptional = v.optional(v.nullable(v.id()));
+const emailParser = v.string({
+  toLowerCase: true,
+  maxLength: 254,
+  minLength: 3,
+  pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  patternMessage: "Invalid email format",
+});
 
 const stringOrNull = (maxLength: number) =>
   v.nullable(v.string({ maxLength, allowEmpty: true }));
@@ -49,27 +61,16 @@ export const schemas = {
   emptyBody: emptyObject,
   idParams,
   idAndResponseParams,
+  idAndUserIdParams,
 
   rootRegisterBody: strictObject({
-    email: v.string({
-      toLowerCase: true,
-      maxLength: 254,
-      minLength: 3,
-      pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-      patternMessage: "Invalid email format",
-    }),
+    email: emailParser,
     password: v.string({ minLength: 6, maxLength: 128 }),
     name: v.optional(v.string({ maxLength: 100, allowEmpty: true })),
   }),
 
   rootLoginBody: strictObject({
-    email: v.string({
-      toLowerCase: true,
-      maxLength: 254,
-      minLength: 3,
-      pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-      patternMessage: "Invalid email format",
-    }),
+    email: emailParser,
     password: v.string({ minLength: 1, maxLength: 128 }),
   }),
 
@@ -120,6 +121,16 @@ export const schemas = {
     responseLimit: v.optional(
       v.nullable(v.number({ integer: true, min: 1, max: 100_000 })),
     ),
+  }),
+
+  createCollaboratorBody: strictObject({
+    userId: v.optional(v.id()),
+    email: v.optional(emailParser),
+    role: v.optional(v.enum(["EDITOR", "VIEWER"] as const)),
+  }),
+
+  updateCollaboratorBody: strictObject({
+    role: v.enum(["EDITOR", "VIEWER"] as const),
   }),
 
   createQuestionBody: strictObject({
