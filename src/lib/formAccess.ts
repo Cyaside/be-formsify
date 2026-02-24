@@ -6,6 +6,7 @@ type FormAccessContext = {
   id: string;
   ownerId: string;
   isPublished: boolean;
+  version: number;
   role: EffectiveFormRole;
   isOwner: boolean;
 };
@@ -35,6 +36,7 @@ const resolveFormAccess = async (
       id: true,
       ownerId: true,
       isPublished: true,
+      version: true,
       collaborators: {
         where: { userId: userId ?? "" },
         select: { role: true },
@@ -64,6 +66,7 @@ const resolveFormAccess = async (
       id: form.id,
       ownerId: form.ownerId,
       isPublished: form.isPublished,
+      version: form.version,
       role,
       isOwner,
     },

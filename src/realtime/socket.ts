@@ -1,29 +1,46 @@
 import type { Server as HttpServer } from "node:http";
-import { Server as SocketIOServer, type Socket } from "socket.io";
+import {
+  Server as SocketIOServer,
+  type Socket,
+  type Server,
+} from "socket.io";
 import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../lib/auth";
 import { isFormCollabEnabled } from "../lib/config";
-import { canReadForm } from "../lib/formAccess";
+import { canEditForm, canReadForm } from "../lib/formAccess";
+import {
+  COLLAB_EVENTS,
+  type CollabClientToServerEvents,
+  type CollabEditingTarget,
+  type CollabErrorServerPayload,
+  type CollabInterServerEvents,
+  type CollabJoinClientPayload,
+  type CollabJoinAck,
+  type CollabLeaveClientPayload,
+  type CollabOpClientPayload,
+  type CollabParticipant,
+  type CollabPresenceUpdateClientPayload,
+  type CollabServerToClientEvents,
+  type CollabSocketData,
+  type CollabSyncRequestClientPayload,
+} from "./events";
 
-type SocketUser = {
-  id: string;
-  email: string;
-};
+type SocketUser = NonNullable<CollabSocketData["user"]>;
+type CollabIo = Server<
+  CollabClientToServerEvents,
+  CollabServerToClientEvents,
+  CollabInterServerEvents,
+  CollabSocketData
+>;
+type CollabSocket = Socket<
+  CollabClientToServerEvents,
+  CollabServerToClientEvents,
+  CollabInterServerEvents,
+  CollabSocketData
+>;
 
-type JoinPayload = {
-  formId: string;
-};
+const FORM_ROOM_PREFIX = "form:";
 
-type JoinAck =
-  | {
-      ok: true;
-      formId: string;
-      role: "OWNER" | "EDITOR" | "VIEWER" | "NONE";
-    }
-  | {
-      ok: false;
-      message: string;
-      status?: number;
-    };
+const roomPresence = new Map<string, Map<string, CollabParticipant>>();
 
 const unwrapEnvString = (value?: string) => {
   if (!value) return value;
@@ -55,7 +72,7 @@ const parseCookieHeader = (cookieHeader?: string) => {
   return cookies;
 };
 
-const getSocketToken = (socket: Socket) => {
+const getSocketToken = (socket: CollabSocket) => {
   const authHeader =
     typeof socket.handshake.headers.authorization === "string"
       ? socket.handshake.headers.authorization
@@ -83,28 +100,157 @@ const getSocketCorsOrigins = () => {
     .filter((origin) => origin.length > 0);
 };
 
-const isNonEmptyObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const formRoomName = (formId: string) => `${FORM_ROOM_PREFIX}${formId}`;
 
-const parseJoinPayload = (value: unknown): JoinPayload | null => {
-  if (!isNonEmptyObject(value)) return null;
-  const formId =
-    typeof value.formId === "string" ? value.formId.trim() : "";
+const parseFormIdPayload = (value: unknown): { formId: string } | null => {
+  if (typeof value !== "object" || value === null) return null;
+  const formId = "formId" in value && typeof value.formId === "string"
+    ? value.formId.trim()
+    : "";
   if (!formId) return null;
   return { formId };
 };
 
-const emitAuthErrorAndDisconnect = (socket: Socket, message: string) => {
-  socket.emit("collab:error", { message, code: "UNAUTHORIZED" });
+const parseJoinPayload = (value: unknown): CollabJoinClientPayload | null => {
+  const parsed = parseFormIdPayload(value);
+  return parsed ? { formId: parsed.formId } : null;
+};
+
+const parseLeavePayload = (value: unknown): CollabLeaveClientPayload | null => {
+  const parsed = parseFormIdPayload(value);
+  return parsed ? { formId: parsed.formId } : null;
+};
+
+const isValidEditingTarget = (value: unknown): value is CollabEditingTarget => {
+  if (value === null) return true;
+  if (typeof value !== "object" || value === null) return false;
+
+  const candidate = value as Record<string, unknown>;
+  const kind = candidate.kind;
+  if (
+    kind !== "form" &&
+    kind !== "section" &&
+    kind !== "question" &&
+    kind !== "option"
+  ) {
+    return false;
+  }
+  if (candidate.id !== undefined && typeof candidate.id !== "string") return false;
+  if (candidate.field !== undefined && typeof candidate.field !== "string") return false;
+  return true;
+};
+
+const parsePresenceUpdatePayload = (
+  value: unknown,
+): CollabPresenceUpdateClientPayload | null => {
+  if (typeof value !== "object" || value === null) return null;
+  const formId = "formId" in value && typeof value.formId === "string"
+    ? value.formId.trim()
+    : "";
+  if (!formId) return null;
+  const editingTarget = "editingTarget" in value ? value.editingTarget : null;
+  if (!isValidEditingTarget(editingTarget)) return null;
+  return { formId, editingTarget };
+};
+
+const parseSyncRequestPayload = (value: unknown): CollabSyncRequestClientPayload | null => {
+  const parsed = parseFormIdPayload(value);
+  return parsed ? { formId: parsed.formId } : null;
+};
+
+const parseOpPayload = (value: unknown): CollabOpClientPayload | null => {
+  if (typeof value !== "object" || value === null) return null;
+  const candidate = value as Record<string, unknown>;
+  const formId = typeof candidate.formId === "string" ? candidate.formId.trim() : "";
+  const opId = typeof candidate.opId === "string" ? candidate.opId.trim() : "";
+  const type = typeof candidate.type === "string" ? candidate.type.trim() : "";
+  const baseVersion = candidate.baseVersion;
+
+  if (!formId || !opId || !type) return null;
+  if (!Number.isInteger(baseVersion) || (baseVersion as number) < 0) return null;
+
+  return {
+    formId,
+    opId,
+    baseVersion: baseVersion as number,
+    type,
+    payload: candidate.payload,
+  };
+};
+
+const getParticipants = (formId: string) =>
+  Array.from(roomPresence.get(formId)?.values() ?? []).sort((a, b) =>
+    a.joinedAt.localeCompare(b.joinedAt),
+  );
+
+const upsertParticipant = ({
+  formId,
+  socketId,
+  user,
+  role,
+  editingTarget,
+}: {
+  formId: string;
+  socketId: string;
+  user: SocketUser;
+  role: CollabParticipant["role"];
+  editingTarget: CollabEditingTarget;
+}) => {
+  const bySocket = roomPresence.get(formId) ?? new Map<string, CollabParticipant>();
+  const existing = bySocket.get(socketId);
+  const now = new Date().toISOString();
+  bySocket.set(socketId, {
+    socketId,
+    user: { id: user.id, email: user.email },
+    role,
+    editingTarget,
+    joinedAt: existing?.joinedAt ?? now,
+    lastSeenAt: now,
+  });
+  roomPresence.set(formId, bySocket);
+};
+
+const removeParticipant = (formId: string, socketId: string) => {
+  const bySocket = roomPresence.get(formId);
+  if (!bySocket) return;
+  bySocket.delete(socketId);
+  if (bySocket.size === 0) {
+    roomPresence.delete(formId);
+    return;
+  }
+  roomPresence.set(formId, bySocket);
+};
+
+const emitPresence = (io: CollabIo, formId: string) => {
+  io.to(formRoomName(formId)).emit(COLLAB_EVENTS.presence, {
+    formId,
+    participants: getParticipants(formId),
+  });
+};
+
+const emitSocketError = (
+  socket: CollabSocket,
+  payload: CollabErrorServerPayload,
+) => {
+  socket.emit(COLLAB_EVENTS.error, payload);
+};
+
+const emitAuthErrorAndDisconnect = (socket: CollabSocket, message: string) => {
+  emitSocketError(socket, { message, code: "UNAUTHORIZED" });
   socket.disconnect(true);
 };
+
+const getJoinedFormIds = (socket: CollabSocket) =>
+  Array.from(socket.rooms)
+    .filter((room) => room.startsWith(FORM_ROOM_PREFIX))
+    .map((room) => room.slice(FORM_ROOM_PREFIX.length));
 
 export const setupRealtimeServer = (httpServer: HttpServer) => {
   if (!isFormCollabEnabled()) {
     return null;
   }
 
-  const io = new SocketIOServer(httpServer, {
+  const io: CollabIo = new SocketIOServer(httpServer, {
     path: "/socket.io",
     cors: {
       origin: getSocketCorsOrigins(),
@@ -127,7 +273,7 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
       socket.data.user = {
         id: decoded.sub,
         email: String(decoded.email ?? ""),
-      } satisfies SocketUser;
+      };
 
       return next();
     } catch {
@@ -136,51 +282,168 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
   });
 
   io.on("connection", (socket) => {
-    const user = socket.data.user as SocketUser | undefined;
+    const user = socket.data.user;
     if (!user) {
       emitAuthErrorAndDisconnect(socket, "Unauthorized");
       return;
     }
 
-    socket.emit("collab:ready", {
-      user: {
-        id: user.id,
-        email: user.email,
-      },
+    socket.emit(COLLAB_EVENTS.ready, {
+      user: { id: user.id, email: user.email },
     });
 
-    socket.on("collab:join", async (rawPayload: unknown, ack?: (response: JoinAck) => void) => {
+    socket.on(COLLAB_EVENTS.join, async (rawPayload, ack) => {
       const payload = parseJoinPayload(rawPayload);
       if (!payload) {
-        const response: JoinAck = { ok: false, status: 400, message: "Invalid formId" };
-        if (typeof ack === "function") ack(response);
+        const response: CollabJoinAck = { ok: false, status: 400, message: "Invalid formId" };
+        ack?.(response);
+        emitSocketError(socket, { message: "Invalid join payload", code: "INVALID_PAYLOAD" });
         return;
       }
 
       const access = await canReadForm(user.id, payload.formId);
       if (!access.ok) {
-        const response: JoinAck = {
+        const response: CollabJoinAck = {
           ok: false,
           status: access.error.status,
           message: access.error.message,
         };
-        if (typeof ack === "function") ack(response);
+        ack?.(response);
         return;
       }
 
-      void socket.join(`form:${payload.formId}`);
-      const response: JoinAck = {
+      await socket.join(formRoomName(payload.formId));
+      upsertParticipant({
+        formId: payload.formId,
+        socketId: socket.id,
+        user,
+        role: access.form.role,
+        editingTarget: null,
+      });
+
+      const participants = getParticipants(payload.formId);
+      ack?.({
         ok: true,
         formId: payload.formId,
         role: access.form.role,
-      };
-      if (typeof ack === "function") ack(response);
+        version: access.form.version,
+      });
+
+      socket.emit(COLLAB_EVENTS.joined, {
+        formId: payload.formId,
+        version: access.form.version,
+        snapshot: null,
+        participants,
+      });
+
+      emitPresence(io, payload.formId);
     });
 
-    socket.on("collab:leave", async (rawPayload: unknown) => {
-      const payload = parseJoinPayload(rawPayload);
+    socket.on(COLLAB_EVENTS.leave, async (rawPayload) => {
+      const payload = parseLeavePayload(rawPayload);
       if (!payload) return;
-      await socket.leave(`form:${payload.formId}`);
+
+      removeParticipant(payload.formId, socket.id);
+      await socket.leave(formRoomName(payload.formId));
+      emitPresence(io, payload.formId);
+    });
+
+    socket.on(COLLAB_EVENTS.presenceUpdate, (rawPayload) => {
+      const payload = parsePresenceUpdatePayload(rawPayload);
+      if (!payload) {
+        emitSocketError(socket, { message: "Invalid presence payload", code: "INVALID_PAYLOAD" });
+        return;
+      }
+
+      if (!socket.rooms.has(formRoomName(payload.formId))) {
+        emitSocketError(socket, { message: "Join form room first", code: "FORBIDDEN" });
+        return;
+      }
+
+      const bySocket = roomPresence.get(payload.formId);
+      const participant = bySocket?.get(socket.id);
+      if (!participant) return;
+
+      upsertParticipant({
+        formId: payload.formId,
+        socketId: socket.id,
+        user,
+        role: participant.role,
+        editingTarget: payload.editingTarget,
+      });
+      emitPresence(io, payload.formId);
+    });
+
+    socket.on(COLLAB_EVENTS.syncRequest, async (rawPayload) => {
+      const payload = parseSyncRequestPayload(rawPayload);
+      if (!payload) {
+        emitSocketError(socket, { message: "Invalid sync payload", code: "INVALID_PAYLOAD" });
+        return;
+      }
+
+      const access = await canReadForm(user.id, payload.formId);
+      if (!access.ok) {
+        emitSocketError(socket, {
+          message: access.error.message,
+          code: access.error.status === 403 ? "FORBIDDEN" : "UNKNOWN",
+        });
+        return;
+      }
+
+      socket.emit(COLLAB_EVENTS.sync, {
+        formId: payload.formId,
+        version: access.form.version,
+        snapshot: null,
+      });
+    });
+
+    socket.on(COLLAB_EVENTS.op, async (rawPayload) => {
+      const payload = parseOpPayload(rawPayload);
+      if (!payload) {
+        emitSocketError(socket, { message: "Invalid operation payload", code: "INVALID_PAYLOAD" });
+        return;
+      }
+
+      if (!socket.rooms.has(formRoomName(payload.formId))) {
+        emitSocketError(socket, { message: "Join form room first", code: "FORBIDDEN" });
+        return;
+      }
+
+      const access = await canEditForm(user.id, payload.formId);
+      if (!access.ok) {
+        emitSocketError(socket, {
+          message: access.error.message,
+          code: access.error.status === 403 ? "FORBIDDEN" : "UNKNOWN",
+        });
+        return;
+      }
+
+      if (payload.baseVersion !== access.form.version) {
+        socket.emit(COLLAB_EVENTS.opRejected, {
+          formId: payload.formId,
+          opId: payload.opId,
+          reason: "BASE_VERSION_MISMATCH",
+          latestVersion: access.form.version,
+        });
+        return;
+      }
+
+      // Step 6 only defines the contract and server-authoritative version checks.
+      // Operation apply + persistence will be implemented in the snapshot/op stages.
+      socket.emit(COLLAB_EVENTS.opRejected, {
+        formId: payload.formId,
+        opId: payload.opId,
+        reason: "NOT_IMPLEMENTED",
+        latestVersion: access.form.version,
+      });
+    });
+
+    socket.on("disconnecting", () => {
+      const joinedFormIds = getJoinedFormIds(socket);
+      for (const formId of joinedFormIds) {
+        removeParticipant(formId, socket.id);
+        emitPresence(io, formId);
+      }
     });
   });
 
