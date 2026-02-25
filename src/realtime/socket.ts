@@ -6,7 +6,9 @@ import {
 } from "socket.io";
 import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../lib/auth";
 import { isFormCollabEnabled } from "../lib/config";
+import { loadBuilderSnapshot } from "../controllers/builderSnapshot.controller";
 import { canEditForm, canReadForm } from "../lib/formAccess";
+import prisma from "../lib/prisma";
 import {
   COLLAB_EVENTS,
   type CollabClientToServerEvents,
@@ -321,18 +323,20 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         editingTarget: null,
       });
 
+      const latestSnapshot = await loadBuilderSnapshot(prisma, payload.formId);
       const participants = getParticipants(payload.formId);
+      const latestVersion = latestSnapshot?.version ?? access.form.version;
       ack?.({
         ok: true,
         formId: payload.formId,
         role: access.form.role,
-        version: access.form.version,
+        version: latestVersion,
       });
 
       socket.emit(COLLAB_EVENTS.joined, {
         formId: payload.formId,
-        version: access.form.version,
-        snapshot: null,
+        version: latestVersion,
+        snapshot: latestSnapshot?.snapshot ?? null,
         participants,
       });
 
@@ -390,10 +394,11 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         return;
       }
 
+      const latestSnapshot = await loadBuilderSnapshot(prisma, payload.formId);
       socket.emit(COLLAB_EVENTS.sync, {
         formId: payload.formId,
-        version: access.form.version,
-        snapshot: null,
+        version: latestSnapshot?.version ?? access.form.version,
+        snapshot: latestSnapshot?.snapshot ?? null,
       });
     });
 
@@ -449,4 +454,3 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
 
   return io;
 };
-

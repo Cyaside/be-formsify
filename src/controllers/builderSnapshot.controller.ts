@@ -37,7 +37,7 @@ type BuilderSnapshotInput = {
   questions: BuilderSnapshotQuestionInput[];
 };
 
-type BuilderSnapshotResponseData = {
+export type BuilderSnapshotResponseData = {
   formId: string;
   version: number;
   snapshot: {
@@ -162,7 +162,7 @@ const normalizeSnapshotInput = (
   };
 };
 
-const loadBuilderSnapshot = async (
+export const loadBuilderSnapshot = async (
   client: SnapshotClient,
   formId: string,
 ): Promise<BuilderSnapshotResponseData | null> => {
@@ -425,4 +425,3 @@ export const updateBuilderSnapshot = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Failed to update builder snapshot" });
   }
 };
-

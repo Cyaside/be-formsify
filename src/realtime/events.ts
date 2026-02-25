@@ -94,7 +94,30 @@ export type CollabJoinAck =
 export type CollabJoinedServerPayload = {
   formId: string;
   version: number;
-  snapshot: null;
+  snapshot: {
+    title: string;
+    description: string | null;
+    thankYouTitle: string;
+    thankYouMessage: string;
+    isClosed: boolean;
+    responseLimit: number | null;
+    sections: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      order: number;
+    }>;
+    questions: Array<{
+      id: string;
+      sectionId: string;
+      title: string;
+      description: string | null;
+      type: "SHORT_ANSWER" | "MCQ" | "CHECKBOX" | "DROPDOWN";
+      required: boolean;
+      order: number;
+      options: string[];
+    }>;
+  } | null;
   participants: CollabParticipant[];
 };
 
@@ -124,7 +147,7 @@ export type CollabOpRejectedServerPayload = {
 export type CollabSyncServerPayload = {
   formId: string;
   version: number;
-  snapshot: null;
+  snapshot: CollabJoinedServerPayload["snapshot"];
 };
 
 export interface CollabServerToClientEvents {
@@ -156,4 +179,3 @@ export type CollabSocketData = {
     email: string;
   };
 };
-
