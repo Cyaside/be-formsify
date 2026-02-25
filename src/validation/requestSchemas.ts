@@ -146,11 +146,11 @@ export const schemas = {
   createCollaboratorBody: strictObject({
     userId: v.optional(v.id()),
     email: v.optional(emailParser),
-    role: v.optional(v.enum(["EDITOR", "VIEWER"] as const)),
+    role: v.optional(v.enum(["EDITOR"] as const)),
   }),
 
   updateCollaboratorBody: strictObject({
-    role: v.enum(["EDITOR", "VIEWER"] as const),
+    role: v.enum(["EDITOR"] as const),
   }),
 
   updateBuilderSnapshotBody: strictObject({

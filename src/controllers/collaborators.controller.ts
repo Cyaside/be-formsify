@@ -2,10 +2,10 @@ import type { Request, Response } from "express";
 import { canManageCollaborators } from "../lib/formAccess";
 import prisma from "../lib/prisma";
 
-const DEFAULT_COLLABORATOR_ROLE = "VIEWER" as const;
-const EDITABLE_COLLABORATOR_ROLES = new Set(["EDITOR", "VIEWER"] as const);
+const DEFAULT_COLLABORATOR_ROLE = "EDITOR" as const;
+const EDITABLE_COLLABORATOR_ROLES = new Set(["EDITOR"] as const);
 
-type EditableCollaboratorRole = "EDITOR" | "VIEWER";
+type EditableCollaboratorRole = "EDITOR";
 type ResolvedTargetUser =
   | { user: { id: string; email: string; name: string | null } }
   | { error: { status: number; message: string } };

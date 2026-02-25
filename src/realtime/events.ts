@@ -15,7 +15,7 @@ export const COLLAB_EVENTS = {
 } as const;
 
 export type CollabEventName = (typeof COLLAB_EVENTS)[keyof typeof COLLAB_EVENTS];
-export type CollabRole = "OWNER" | "EDITOR" | "VIEWER" | "NONE";
+export type CollabRole = "OWNER" | "EDITOR" | "NONE";
 export type CollabEditingTarget =
   | null
   | {

@@ -1,6 +1,6 @@
 import prisma from "./prisma";
 
-type EffectiveFormRole = "OWNER" | "EDITOR" | "VIEWER" | "NONE";
+type EffectiveFormRole = "OWNER" | "EDITOR" | "NONE";
 
 type FormAccessContext = {
   id: string;
@@ -56,9 +56,7 @@ const resolveFormAccess = async (
     ? "OWNER"
     : collaboratorRole === "EDITOR" || collaboratorRole === "OWNER"
       ? collaboratorRole
-      : collaboratorRole === "VIEWER"
-        ? "VIEWER"
-        : "NONE";
+      : "NONE";
 
   return {
     ok: true,
