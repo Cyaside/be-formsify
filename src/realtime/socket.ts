@@ -6,7 +6,7 @@ import {
 } from "socket.io";
 import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../lib/auth";
 import { isFormCollabEnabled } from "../lib/config";
-import { loadBuilderSnapshot } from "../controllers/builderSnapshot.controller";
+import { loadBuilderSnapshot } from "../modules/builder/builder.service";
 import { canEditForm, canReadForm } from "../lib/formAccess";
 import prisma from "../lib/prisma";
 import {
