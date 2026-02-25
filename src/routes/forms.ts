@@ -1,5 +1,9 @@
 import { Router } from "express";
 import {
+  getBuilderSnapshot,
+  updateBuilderSnapshot,
+} from "../controllers/builderSnapshot.controller";
+import {
   createCollaborator,
   deleteCollaborator,
   listCollaborators,
@@ -52,6 +56,13 @@ router.get(
   validateRequest({ params: schemas.idParams, query: schemas.emptyQuery }),
   optionalAuth,
   listSections,
+);
+router.get(
+  "/:id/builder-snapshot",
+  validateRequest({ params: schemas.idParams, query: schemas.emptyQuery }),
+  authRequired,
+  requireFormCollabEnabled,
+  getBuilderSnapshot,
 );
 router.get(
   "/:id/responses",
@@ -122,6 +133,13 @@ router.post(
   "/:id/submit",
   validateRequest({ params: schemas.idParams, body: schemas.submitFormBody }),
   submitForm,
+);
+router.put(
+  "/:id/builder-snapshot",
+  validateRequest({ params: schemas.idParams, body: schemas.updateBuilderSnapshotBody }),
+  authRequired,
+  requireFormCollabEnabled,
+  updateBuilderSnapshot,
 );
 router.put(
   "/:id",

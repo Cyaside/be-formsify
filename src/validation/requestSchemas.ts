@@ -6,6 +6,8 @@ const MAX_TEXT_LONG = 5000;
 const MAX_ANSWER_TEXT = 5000;
 const MAX_OPTIONS = 100;
 const MAX_ANSWERS_PER_SUBMISSION = 1000;
+const MAX_BUILDER_SECTIONS = 200;
+const MAX_BUILDER_QUESTIONS = 5000;
 
 const emptyObject = strictObject({});
 
@@ -54,6 +56,24 @@ const answerEntryParser = strictObject({
   questionId: v.id(),
   optionId: v.optional(v.nullable(v.id())),
   text: v.optional(v.nullable(v.string({ maxLength: MAX_ANSWER_TEXT, allowEmpty: true }))),
+});
+
+const builderSnapshotSectionParser = strictObject({
+  id: v.id(),
+  title: v.string({ maxLength: MAX_TEXT_SHORT, allowEmpty: true }),
+  description: optionalStringOrNull(MAX_TEXT_LONG),
+  order: optionalInt(0, 1_000_000),
+});
+
+const builderSnapshotQuestionParser = strictObject({
+  id: v.id(),
+  sectionId: v.id(),
+  title: v.string({ maxLength: MAX_TEXT_MEDIUM, allowEmpty: true }),
+  description: optionalStringOrNull(MAX_TEXT_LONG),
+  type: v.enum(["SHORT_ANSWER", "MCQ", "CHECKBOX", "DROPDOWN"] as const),
+  required: v.boolean({ coerceString: true }),
+  order: optionalInt(0, 1_000_000),
+  options: v.optional(optionsArrayParser),
 });
 
 export const schemas = {
@@ -131,6 +151,25 @@ export const schemas = {
 
   updateCollaboratorBody: strictObject({
     role: v.enum(["EDITOR", "VIEWER"] as const),
+  }),
+
+  updateBuilderSnapshotBody: strictObject({
+    baseVersion: v.number({ integer: true, min: 0, coerceString: true }),
+    snapshot: strictObject({
+      title: v.string({ maxLength: MAX_TEXT_SHORT }),
+      description: stringOrNull(MAX_TEXT_LONG),
+      thankYouTitle: v.string({ maxLength: MAX_TEXT_SHORT, allowEmpty: true }),
+      thankYouMessage: v.string({ maxLength: MAX_TEXT_LONG, allowEmpty: true }),
+      isClosed: v.boolean({ coerceString: true }),
+      responseLimit: v.nullable(v.number({ integer: true, min: 1, max: 100_000 })),
+      sections: v.array(builderSnapshotSectionParser, {
+        minLength: 1,
+        maxLength: MAX_BUILDER_SECTIONS,
+      }),
+      questions: v.array(builderSnapshotQuestionParser, {
+        maxLength: MAX_BUILDER_QUESTIONS,
+      }),
+    }),
   }),
 
   createQuestionBody: strictObject({
