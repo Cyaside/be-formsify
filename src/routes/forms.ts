@@ -13,6 +13,7 @@ import {
   createForm,
   deleteForm,
   getForm,
+  listCollaboratorForms,
   listForms,
   listPublicForms,
   updateForm,
@@ -39,6 +40,13 @@ const router = Router();
 
 router.get("/public", validateRequest({ query: schemas.listPublicFormsQuery }), listPublicForms);
 router.get("/", validateRequest({ query: schemas.listFormsQuery }), authRequired, listForms);
+router.get(
+  "/collaborations",
+  validateRequest({ query: schemas.listFormsQuery }),
+  authRequired,
+  requireFormCollabEnabled,
+  listCollaboratorForms,
+);
 router.get(
   "/:id",
   validateRequest({ params: schemas.idParams, query: schemas.emptyQuery }),
