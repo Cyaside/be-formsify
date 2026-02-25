@@ -1,18 +1,17 @@
 import type { Request, Response } from "express";
 import {
-  BuilderHttpError,
   getBuilderSnapshotForUser,
   loadBuilderSnapshot,
   updateBuilderSnapshotForUser,
 } from "../modules/builder/builder.service";
+import { respondHttpError } from "../shared/http/respondHttpError";
 
 export type { BuilderSnapshotResponseData } from "../modules/builder/builder.types";
 export { loadBuilderSnapshot };
 
 const handleBuilderHttpError = (res: Response, error: unknown) => {
-  if (error instanceof BuilderHttpError) {
-    return res.status(error.status).json(error.payload);
-  }
+  const handled = respondHttpError(res, error);
+  if (handled) return handled;
   throw error;
 };
 

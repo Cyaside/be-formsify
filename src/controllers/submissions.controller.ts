@@ -1,8 +1,6 @@
 import type { Request, Response } from "express";
-import {
-  SubmissionHttpError,
-  submitFormResponse,
-} from "../modules/submissions/submissions.service";
+import { submitFormResponse } from "../modules/submissions/submissions.service";
+import { respondHttpError } from "../shared/http/respondHttpError";
 
 export const submitForm = async (req: Request, res: Response) => {
   try {
@@ -14,9 +12,8 @@ export const submitForm = async (req: Request, res: Response) => {
 
     return res.status(201).json({ data });
   } catch (error) {
-    if (error instanceof SubmissionHttpError) {
-      return res.status(error.status).json(error.payload);
-    }
+    const handled = respondHttpError(res, error);
+    if (handled) return handled;
     throw error;
   }
 };

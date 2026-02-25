@@ -1,6 +1,7 @@
 import prisma from "../../lib/prisma";
 import { canEditForm, canReadForm } from "../../lib/formAccess";
 import { broadcastCollabStatus } from "../../realtime/hub";
+import { httpError, HttpServiceError } from "../../shared/errors/httpError";
 import {
   BUILDER_DEFAULT_QUESTION_TITLE,
   BUILDER_DEFAULT_SECTION_TITLE,
@@ -12,18 +13,6 @@ import { loadBuilderSnapshot } from "./builder.repository";
 import type { BuilderSnapshotInput, BuilderSnapshotResponseData } from "./builder.types";
 
 export type BuilderConflictCode = "VERSION_CONFLICT" | "RESPONSES_LOCKED";
-
-export class BuilderHttpError extends Error {
-  status: number;
-  payload: Record<string, unknown>;
-
-  constructor(status: number, payload: Record<string, unknown>) {
-    super(typeof payload.message === "string" ? payload.message : `HTTP ${status}`);
-    this.name = "BuilderHttpError";
-    this.status = status;
-    this.payload = payload;
-  }
-}
 
 class BuilderSnapshotConflictError extends Error {
   latestVersion: number;
@@ -42,7 +31,7 @@ class BuilderSnapshotConflictError extends Error {
 }
 
 const toBuilderHttpError = (status: number, message: string) =>
-  new BuilderHttpError(status, { message });
+  httpError(status, message);
 
 const parseAndNormalizeSnapshot = (rawSnapshot: unknown) => {
   try {
@@ -68,7 +57,7 @@ const buildConflictHttpError = async (
   code?: BuilderConflictCode,
 ) => {
   const latest = await loadBuilderSnapshot(prisma, formId);
-  return new BuilderHttpError(409, {
+  return new HttpServiceError(409, {
     code: code ?? "VERSION_CONFLICT",
     message,
     latestVersion: latest?.version ?? latestVersion ?? null,
@@ -242,7 +231,7 @@ export const updateBuilderSnapshotForUser = async ({
 
     return data;
   } catch (error) {
-    if (error instanceof BuilderHttpError) {
+    if (error instanceof HttpServiceError) {
       throw error;
     }
 

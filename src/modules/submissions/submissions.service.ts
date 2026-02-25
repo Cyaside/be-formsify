@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma";
+import { httpError } from "../../shared/errors/httpError";
 import {
   groupValidAnswerPayloads,
   prepareQuestionAnswers,
@@ -6,20 +7,8 @@ import {
   type SubmissionQuestion,
 } from "./submissions.policy";
 
-export class SubmissionHttpError extends Error {
-  status: number;
-  payload: Record<string, unknown>;
-
-  constructor(status: number, payload: Record<string, unknown>) {
-    super(typeof payload.message === "string" ? payload.message : `HTTP ${status}`);
-    this.name = "SubmissionHttpError";
-    this.status = status;
-    this.payload = payload;
-  }
-}
-
 const submissionError = (status: number, message: string) =>
-  new SubmissionHttpError(status, { message });
+  httpError(status, message);
 
 export const submitFormResponse = async ({
   formId,

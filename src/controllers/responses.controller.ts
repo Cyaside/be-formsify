@@ -1,188 +1,64 @@
 import type { Request, Response } from "express";
-import prisma from "../lib/prisma";
+import {
+  deleteResponseForOwner,
+  getFormSummaryForOwner,
+  getResponseDetailForOwner,
+  listResponsesForOwner,
+} from "../modules/responses/responses.service";
+import { respondHttpError } from "../shared/http/respondHttpError";
 
-const ensureOwner = async (formId: string, userId: string) => {
-  const form = await prisma.form.findUnique({
-    where: { id: formId },
-    select: { id: true, ownerId: true, title: true, description: true },
-  });
-  if (!form) {
-    return { error: { status: 404, message: "Form not found" } };
-  }
-  if (form.ownerId !== userId) {
-    return { error: { status: 403, message: "Forbidden" } };
-  }
-  return { form };
+const rethrowUnhandled = (res: Response, error: unknown): Response => {
+  const handled = respondHttpError(res, error);
+  if (handled) return handled;
+  throw error;
 };
 
 export const listResponses = async (req: Request, res: Response) => {
-  const formId = String(req.params.id);
-  const userId = String(req.user!.id);
-  const guard = await ensureOwner(formId, userId);
-  if (guard.error) {
-    return res.status(guard.error.status).json({ message: guard.error.message });
+  try {
+    const formId = String(req.params.id);
+    const userId = String(req.user!.id);
+    const payload = await listResponsesForOwner({
+      formId,
+      userId,
+      query: { page: req.query.page, limit: req.query.limit },
+    });
+    return res.json(payload);
+  } catch (error) {
+    return rethrowUnhandled(res, error);
   }
-
-  const rawPage = Number(req.query.page);
-  const rawLimit = Number(req.query.limit);
-  const usePagination = req.query.page !== undefined || req.query.limit !== undefined;
-  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 10;
-
-  const baseQuery = {
-    where: { formId },
-    orderBy: { createdAt: "desc" as const },
-    include: {
-      answers: {
-        include: { question: { include: { options: true } } },
-      },
-    },
-  };
-
-  if (!usePagination) {
-    const responses = await prisma.response.findMany(baseQuery);
-    return res.json({ data: responses, form: guard.form });
-  }
-
-  const skip = (page - 1) * limit;
-  const [total, responses] = await Promise.all([
-    prisma.response.count({ where: { formId } }),
-    prisma.response.findMany({
-      ...baseQuery,
-      skip,
-      take: limit,
-    }),
-  ]);
-
-  return res.json({
-    data: responses,
-    form: guard.form,
-    meta: {
-      page,
-      limit,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    },
-  });
 };
 
 export const getResponseDetail = async (req: Request, res: Response) => {
-  const formId = String(req.params.id);
-  const responseId = String(req.params.responseId);
-  const userId = String(req.user!.id);
-  const guard = await ensureOwner(formId, userId);
-  if (guard.error) {
-    return res.status(guard.error.status).json({ message: guard.error.message });
+  try {
+    const formId = String(req.params.id);
+    const responseId = String(req.params.responseId);
+    const userId = String(req.user!.id);
+    const payload = await getResponseDetailForOwner({ formId, responseId, userId });
+    return res.json(payload);
+  } catch (error) {
+    return rethrowUnhandled(res, error);
   }
-
-  const responseRecord = await prisma.response.findUnique({
-    where: { id: responseId },
-    include: {
-      answers: {
-        include: {
-          question: {
-            include: { options: { orderBy: { order: "asc" } } },
-          },
-        },
-      },
-    },
-  });
-
-  if (!responseRecord || responseRecord.formId !== formId) {
-    return res.status(404).json({ message: "Response not found" });
-  }
-
-  return res.json({ data: responseRecord, form: guard.form });
 };
 
 export const getSummary = async (req: Request, res: Response) => {
-  const formId = String(req.params.id);
-  const userId = String(req.user!.id);
-  const guard = await ensureOwner(formId, userId);
-  if (guard.error) {
-    return res.status(guard.error.status).json({ message: guard.error.message });
+  try {
+    const formId = String(req.params.id);
+    const userId = String(req.user!.id);
+    const payload = await getFormSummaryForOwner({ formId, userId });
+    return res.json(payload);
+  } catch (error) {
+    return rethrowUnhandled(res, error);
   }
-
-  const questions = await prisma.question.findMany({
-    where: { formId },
-    include: { options: true },
-    orderBy: { order: "asc" },
-  });
-
-  const answers = await prisma.answer.findMany({
-    where: { response: { is: { formId } } },
-    select: { questionId: true, optionId: true, text: true },
-  });
-
-  const answersByQuestion = new Map<
-    string,
-    Array<{ optionId: string | null; text: string | null }>
-  >();
-  answers.forEach((answer) => {
-    const existing = answersByQuestion.get(answer.questionId) ?? [];
-    existing.push({ optionId: answer.optionId ?? null, text: answer.text ?? null });
-    answersByQuestion.set(answer.questionId, existing);
-  });
-
-  const summary = (questions as any[]).map((question) => {
-    const questionAnswers = answersByQuestion.get(question.id) ?? [];
-    if (question.type === "SHORT_ANSWER") {
-      return {
-        questionId: question.id,
-        title: question.title,
-        type: question.type,
-        totalAnswers: questionAnswers.filter((answer) => {
-          return typeof answer.text === "string" && answer.text.trim().length > 0;
-        }).length,
-      };
-    }
-    const opts = (question.options ?? []) as any[];
-
-    const counts: Record<string, number> = {};
-    opts.forEach((option) => {
-      counts[option.id] = 0;
-    });
-
-    questionAnswers.forEach((answer) => {
-      if (answer.optionId && answer.optionId in counts) {
-        counts[answer.optionId] += 1;
-      }
-    });
-
-    return {
-      questionId: question.id,
-      title: question.title,
-      type: question.type,
-      options: opts.map((option) => ({
-        id: option.id,
-        label: option.label,
-        count: counts[option.id] ?? 0,
-      })),
-    };
-  });
-
-  return res.json({ data: summary, form: guard.form });
 };
 
 export const deleteResponse = async (req: Request, res: Response) => {
-  const formId = String(req.params.id);
-  const responseId = String(req.params.responseId);
-  const userId = String(req.user!.id);
-
-  const guard = await ensureOwner(formId, userId);
-  if (guard.error) {
-    return res.status(guard.error.status).json({ message: guard.error.message });
+  try {
+    const formId = String(req.params.id);
+    const responseId = String(req.params.responseId);
+    const userId = String(req.user!.id);
+    await deleteResponseForOwner({ formId, responseId, userId });
+    return res.status(204).send();
+  } catch (error) {
+    return rethrowUnhandled(res, error);
   }
-
-  const responseRecord = await prisma.response.findUnique({
-    where: { id: responseId },
-    select: { id: true, formId: true },
-  });
-
-  if (responseRecord?.formId !== formId) {
-    return res.status(404).json({ message: "Response not found" });
-  }
-
-  await prisma.response.delete({ where: { id: responseId } });
-  return res.status(204).send();
 };
