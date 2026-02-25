@@ -9,6 +9,7 @@ export const COLLAB_EVENTS = {
   op: "collab:op",
   opApplied: "collab:op:applied",
   opRejected: "collab:op:rejected",
+  status: "collab:status",
   syncRequest: "collab:sync:request",
   sync: "collab:sync",
 } as const;
@@ -144,6 +145,13 @@ export type CollabOpRejectedServerPayload = {
   latestVersion: number;
 };
 
+export type CollabStatusServerPayload = {
+  formId: string;
+  kind: "RESPONSES_LOCKED" | "RESYNC_REQUIRED";
+  message: string;
+  latestVersion: number | null;
+};
+
 export type CollabSyncServerPayload = {
   formId: string;
   version: number;
@@ -157,6 +165,7 @@ export interface CollabServerToClientEvents {
   [COLLAB_EVENTS.presence]: (payload: CollabPresenceServerPayload) => void;
   [COLLAB_EVENTS.opApplied]: (payload: CollabOpAppliedServerPayload) => void;
   [COLLAB_EVENTS.opRejected]: (payload: CollabOpRejectedServerPayload) => void;
+  [COLLAB_EVENTS.status]: (payload: CollabStatusServerPayload) => void;
   [COLLAB_EVENTS.sync]: (payload: CollabSyncServerPayload) => void;
 }
 

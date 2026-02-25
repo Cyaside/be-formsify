@@ -25,6 +25,7 @@ import {
   type CollabSocketData,
   type CollabSyncRequestClientPayload,
 } from "./events";
+import { registerCollabStatusBroadcaster } from "./hub";
 
 type SocketUser = NonNullable<CollabSocketData["user"]>;
 type CollabIo = Server<
@@ -433,13 +434,26 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         return;
       }
 
-      // Step 6 only defines the contract and server-authoritative version checks.
-      // Operation apply + persistence will be implemented in the snapshot/op stages.
-      socket.emit(COLLAB_EVENTS.opRejected, {
+
+      if (payload.type !== "builder.preview.replace") {
+        socket.emit(COLLAB_EVENTS.opRejected, {
+          formId: payload.formId,
+          opId: payload.opId,
+          reason: "NOT_IMPLEMENTED",
+          latestVersion: access.form.version,
+        });
+        return;
+      }
+
+      io.to(formRoomName(payload.formId)).emit(COLLAB_EVENTS.opApplied, {
         formId: payload.formId,
         opId: payload.opId,
-        reason: "NOT_IMPLEMENTED",
-        latestVersion: access.form.version,
+        nextVersion: access.form.version,
+        op: payload,
+        actor: {
+          id: user.id,
+          email: user.email,
+        },
       });
     });
 
@@ -450,6 +464,10 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         emitPresence(io, formId);
       }
     });
+  });
+
+  registerCollabStatusBroadcaster((payload) => {
+    io.to(formRoomName(payload.formId)).emit(COLLAB_EVENTS.status, payload);
   });
 
   return io;

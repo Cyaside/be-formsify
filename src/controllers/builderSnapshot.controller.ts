@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { Prisma } from "../generated/prisma/client";
 import { canEditForm, canReadForm } from "../lib/formAccess";
 import prisma from "../lib/prisma";
+import { broadcastCollabStatus } from "../realtime/hub";
 
 const DEFAULT_THANK_YOU_TITLE = "Thank you!";
 const DEFAULT_THANK_YOU_MESSAGE = "Your response has been recorded.";
@@ -69,11 +70,17 @@ export type BuilderSnapshotResponseData = {
 class BuilderSnapshotConflictError extends Error {
   status = 409 as const;
   latestVersion: number;
+  reason: "VERSION_CONFLICT" | "RESPONSES_LOCKED";
 
-  constructor(message: string, latestVersion: number) {
+  constructor(
+    message: string,
+    latestVersion: number,
+    reason: "VERSION_CONFLICT" | "RESPONSES_LOCKED" = "VERSION_CONFLICT",
+  ) {
     super(message);
     this.name = "BuilderSnapshotConflictError";
     this.latestVersion = latestVersion;
+    this.reason = reason;
   }
 }
 
@@ -239,9 +246,11 @@ const sendSnapshotConflict = async (
   formId: string,
   message: string,
   latestVersion?: number,
+  code?: "VERSION_CONFLICT" | "RESPONSES_LOCKED",
 ) => {
   const latest = await loadBuilderSnapshot(prisma, formId);
   return res.status(409).json({
+    code: code ?? "VERSION_CONFLICT",
     message,
     latestVersion: latest?.version ?? latestVersion ?? null,
     snapshot: latest?.snapshot ?? null,
@@ -306,6 +315,7 @@ export const updateBuilderSnapshot = async (req: Request, res: Response) => {
         throw new BuilderSnapshotConflictError(
           "Builder snapshot updates are locked once the form has responses",
           form.version,
+          "RESPONSES_LOCKED",
         );
       }
 
@@ -414,7 +424,21 @@ export const updateBuilderSnapshot = async (req: Request, res: Response) => {
     return res.json({ data });
   } catch (error) {
     if (error instanceof BuilderSnapshotConflictError) {
-      return sendSnapshotConflict(res, formId, error.message, error.latestVersion);
+      if (error.reason === "RESPONSES_LOCKED") {
+        broadcastCollabStatus({
+          formId,
+          kind: "RESPONSES_LOCKED",
+          message: error.message,
+          latestVersion: error.latestVersion,
+        });
+      }
+      return sendSnapshotConflict(
+        res,
+        formId,
+        error.message,
+        error.latestVersion,
+        error.reason,
+      );
     }
     if (error instanceof Error && error.message === "FORM_NOT_FOUND") {
       return res.status(404).json({ message: "Form not found" });
