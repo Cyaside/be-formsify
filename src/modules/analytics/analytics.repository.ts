@@ -1,5 +1,5 @@
 import { Prisma } from "../../generated/prisma/client";
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const analyticsRepository = {
   countFormsByOwner: (userId: string) => prisma.form.count({ where: { ownerId: userId } }),
@@ -25,3 +25,4 @@ export const analyticsRepository = {
       `,
     ),
 };
+

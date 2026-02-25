@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../lib/auth";
+import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../shared/auth/auth";
 
 type WindowCounter = {
   count: number;
@@ -238,3 +238,4 @@ export const rateLimitAllRequests = (req: Request, res: Response, next: NextFunc
   res.setHeader("X-RateLimit-Reset", String(Math.floor(userHeaders.resetAt / 1000)));
   return next();
 };
+

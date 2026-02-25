@@ -1,5 +1,5 @@
 import { OAuth2Client } from "google-auth-library";
-import { hashPassword, signToken, verifyPassword } from "../../lib/auth";
+import { hashPassword, signToken, verifyPassword } from "../../shared/auth/auth";
 import { httpError, HttpServiceError } from "../../shared/errors/httpError";
 import { authRepository } from "./auth.repository";
 
@@ -238,3 +238,4 @@ export const getMe = async (userId: string) => {
   const user = await authRepository.findMeById(userId);
   return { user };
 };
+

@@ -4,8 +4,8 @@ import {
   getFormSummaryForOwner,
   getResponseDetailForOwner,
   listResponsesForOwner,
-} from "../modules/responses/responses.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+} from "./responses.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
 const rethrowUnhandled = (res: Response, error: unknown): Response => {
   const handled = respondHttpError(res, error);
@@ -62,3 +62,4 @@ export const deleteResponse = async (req: Request, res: Response) => {
     return rethrowUnhandled(res, error);
   }
 };
+

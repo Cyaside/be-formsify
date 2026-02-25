@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getGlobalAnalyticsForUser } from "../modules/analytics/analytics.service";
+import { getGlobalAnalyticsForUser } from "./analytics.service";
 
 export const getGlobalAnalytics = async (req: Request, res: Response) => {
   const userId = String(req.user!.id);
@@ -12,3 +12,4 @@ export const getGlobalAnalytics = async (req: Request, res: Response) => {
 
   return res.json({ data });
 };
+

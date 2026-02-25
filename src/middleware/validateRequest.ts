@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { RequestValidationError, type Parser } from "../lib/requestValidation";
+import { RequestValidationError, type Parser } from "../shared/validation/requestValidation";
 
 type RequestSchemas = {
   params?: Parser<Record<string, unknown>>;
@@ -34,3 +34,4 @@ export const validateRequest = (schemas: RequestSchemas) => {
     }
   };
 };
+

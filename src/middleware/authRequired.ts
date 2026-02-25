@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../lib/auth";
+import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../shared/auth/auth";
 
 export const authRequired = (req: Request, res: Response, next: NextFunction) => {
   const headerToken = getTokenFromAuthHeader(req.headers.authorization);
@@ -24,3 +24,4 @@ export const authRequired = (req: Request, res: Response, next: NextFunction) =>
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
+

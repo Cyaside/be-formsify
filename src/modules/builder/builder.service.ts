@@ -1,5 +1,5 @@
-import prisma from "../../lib/prisma";
-import { canEditForm, canReadForm } from "../../lib/formAccess";
+import prisma from "../../shared/db/prisma";
+import { canEditForm, canReadForm } from "../../shared/access/formAccess";
 import { broadcastCollabStatus } from "../../realtime/hub";
 import { httpError, HttpServiceError } from "../../shared/errors/httpError";
 import {
@@ -265,3 +265,4 @@ export const updateBuilderSnapshotForUser = async ({
 };
 
 export { loadBuilderSnapshot };
+

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { googleAuth, login, logout, me, register } from "../controllers/auth.controller";
-import { authRequired } from "../middleware/authRequired";
-import { validateRequest } from "../middleware/validateRequest";
-import { schemas } from "../validation/requestSchemas";
+import { googleAuth, login, logout, me, register } from "./auth.controller";
+import { authRequired } from "../../middleware/authRequired";
+import { validateRequest } from "../../middleware/validateRequest";
+import { schemas } from "../../shared/validation/requestSchemas";
 
 const router = Router();
 
@@ -18,3 +18,5 @@ router.post(
 );
 
 export default router;
+
+

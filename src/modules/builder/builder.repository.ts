@@ -1,5 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client";
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 import type { BuilderSnapshotResponseData, BuilderSnapshotQuestionType } from "./builder.types";
 
 export type SnapshotClient = typeof prisma | Prisma.TransactionClient;
@@ -75,3 +75,4 @@ export const loadBuilderSnapshot = async (
     },
   };
 };
+

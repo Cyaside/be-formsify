@@ -1,4 +1,4 @@
-import { canEditForm, canReadForm } from "../../lib/formAccess";
+import { canEditForm, canReadForm } from "../../shared/access/formAccess";
 import { httpError } from "../../shared/errors/httpError";
 import { questionsPrisma, questionsRepository } from "./questions.repository";
 
@@ -292,3 +292,4 @@ export const deleteQuestionByIdForUser = async ({
 
   await questionsRepository.deleteQuestion(questionId);
 };
+

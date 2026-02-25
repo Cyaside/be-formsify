@@ -3,10 +3,10 @@ import {
   getBuilderSnapshotForUser,
   loadBuilderSnapshot,
   updateBuilderSnapshotForUser,
-} from "../modules/builder/builder.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+} from "./builder.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
-export type { BuilderSnapshotResponseData } from "../modules/builder/builder.types";
+export type { BuilderSnapshotResponseData } from "./builder.types";
 export { loadBuilderSnapshot };
 
 const handleBuilderHttpError = (res: Response, error: unknown) => {
@@ -39,3 +39,4 @@ export const updateBuilderSnapshot = async (req: Request, res: Response) => {
     return handleBuilderHttpError(res, error);
   }
 };
+

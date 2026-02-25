@@ -4,8 +4,8 @@ import {
   deleteCollaboratorForForm,
   listCollaboratorsForForm,
   updateCollaboratorForForm,
-} from "../modules/collaborators/collaborators.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+} from "./collaborators.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
 const rethrowUnhandled = (res: Response, error: unknown): Response => {
   const handled = respondHttpError(res, error);
@@ -64,3 +64,4 @@ export const deleteCollaborator = async (req: Request, res: Response) => {
     return rethrowUnhandled(res, error);
   }
 };
+

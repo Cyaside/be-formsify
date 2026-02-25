@@ -1,5 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client";
-import { canEditForm, canManageCollaborators, canReadForm } from "../../lib/formAccess";
+import { canEditForm, canManageCollaborators, canReadForm } from "../../shared/access/formAccess";
 import { httpError } from "../../shared/errors/httpError";
 import {
   FORMS_DEFAULT_SECTION_TITLE,
@@ -286,3 +286,4 @@ export const deleteFormForUser = async ({
 
   await formsRepository.deleteForm(formId);
 };
+

@@ -7,8 +7,8 @@ import {
   listPublicForms as listPublicFormsService,
   listOwnedFormsForUser,
   updateFormForUser,
-} from "../modules/forms/forms.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+} from "./forms.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
 const rethrowUnhandled = (res: Response, error: unknown): Response => {
   const handled = respondHttpError(res, error);
@@ -104,3 +104,4 @@ export const deleteForm = async (req: Request, res: Response) => {
     return rethrowUnhandled(res, error);
   }
 };
+

@@ -1,4 +1,4 @@
-import { strictObject, v } from "../lib/requestValidation";
+import { strictObject, v } from "./requestValidation";
 
 const MAX_TEXT_SHORT = 200;
 const MAX_TEXT_MEDIUM = 500;
@@ -212,3 +212,4 @@ export const schemas = {
     ),
   }),
 };
+

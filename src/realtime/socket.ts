@@ -4,11 +4,11 @@ import {
   type Socket,
   type Server,
 } from "socket.io";
-import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../lib/auth";
-import { isFormCollabEnabled } from "../lib/config";
+import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../shared/auth/auth";
+import { isFormCollabEnabled } from "../shared/config/config";
 import { loadBuilderSnapshot } from "../modules/builder/builder.service";
-import { canEditForm, canReadForm } from "../lib/formAccess";
-import prisma from "../lib/prisma";
+import { canEditForm, canReadForm } from "../shared/access/formAccess";
+import prisma from "../shared/db/prisma";
 import {
   COLLAB_EVENTS,
   type CollabClientToServerEvents,
@@ -472,3 +472,4 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
 
   return io;
 };
+

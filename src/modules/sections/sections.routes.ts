@@ -2,10 +2,10 @@ import { Router } from "express";
 import {
   deleteSection,
   updateSection,
-} from "../controllers/sections.controller";
-import { authRequired } from "../middleware/authRequired";
-import { validateRequest } from "../middleware/validateRequest";
-import { schemas } from "../validation/requestSchemas";
+} from "./sections.controller";
+import { authRequired } from "../../middleware/authRequired";
+import { validateRequest } from "../../middleware/validateRequest";
+import { schemas } from "../../shared/validation/requestSchemas";
 
 const router = Router();
 
@@ -23,3 +23,5 @@ router.delete(
 );
 
 export default router;
+
+

@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
 import {
-  createQuestionForForm,
-  deleteQuestionByIdForUser,
-  listQuestionsForForm,
-  updateQuestionByIdForUser,
-} from "../modules/questions/questions.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+  createSectionForForm,
+  deleteSectionByIdForUser,
+  listSectionsForForm,
+  updateSectionByIdForUser,
+} from "./sections.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
 const rethrowUnhandled = (res: Response, error: unknown): Response => {
   const handled = respondHttpError(res, error);
@@ -13,9 +13,9 @@ const rethrowUnhandled = (res: Response, error: unknown): Response => {
   throw error;
 };
 
-export const listQuestions = async (req: Request, res: Response) => {
+export const listSections = async (req: Request, res: Response) => {
   try {
-    const payload = await listQuestionsForForm({
+    const payload = await listSectionsForForm({
       formId: String(req.params.id),
       userId: req.user?.id ?? null,
     });
@@ -25,9 +25,9 @@ export const listQuestions = async (req: Request, res: Response) => {
   }
 };
 
-export const createQuestion = async (req: Request, res: Response) => {
+export const createSection = async (req: Request, res: Response) => {
   try {
-    const payload = await createQuestionForForm({
+    const payload = await createSectionForForm({
       formId: String(req.params.id),
       userId: req.user!.id,
       body: req.body,
@@ -38,10 +38,10 @@ export const createQuestion = async (req: Request, res: Response) => {
   }
 };
 
-export const updateQuestion = async (req: Request, res: Response) => {
+export const updateSection = async (req: Request, res: Response) => {
   try {
-    const payload = await updateQuestionByIdForUser({
-      questionId: String(req.params.id),
+    const payload = await updateSectionByIdForUser({
+      sectionId: String(req.params.id),
       userId: req.user!.id,
       body: req.body,
     });
@@ -51,10 +51,10 @@ export const updateQuestion = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteQuestion = async (req: Request, res: Response) => {
+export const deleteSection = async (req: Request, res: Response) => {
   try {
-    await deleteQuestionByIdForUser({
-      questionId: String(req.params.id),
+    await deleteSectionByIdForUser({
+      sectionId: String(req.params.id),
       userId: req.user!.id,
     });
     return res.status(204).send();
@@ -62,3 +62,4 @@ export const deleteQuestion = async (req: Request, res: Response) => {
     return rethrowUnhandled(res, error);
   }
 };
+

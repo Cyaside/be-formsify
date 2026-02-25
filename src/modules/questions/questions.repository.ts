@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const questionsRepository = {
   findFirstSectionByForm: (formId: string) =>
@@ -77,3 +77,4 @@ export const questionsRepository = {
 };
 
 export { prisma as questionsPrisma };
+

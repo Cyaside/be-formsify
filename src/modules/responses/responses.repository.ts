@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const responsesRepository = {
   findFormOwnerBrief: (formId: string) =>
@@ -61,3 +61,4 @@ export const responsesRepository = {
 
   deleteResponse: (responseId: string) => prisma.response.delete({ where: { id: responseId } }),
 };
+

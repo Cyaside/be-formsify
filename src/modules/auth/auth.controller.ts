@@ -1,12 +1,12 @@
 import type { Request, Response } from "express";
-import { clearAuthCookie, setAuthCookie } from "../lib/cookies";
+import { clearAuthCookie, setAuthCookie } from "../../shared/auth/cookies";
 import {
   getMe,
   loginWithEmailPassword,
   loginWithGoogle,
   registerWithEmailPassword,
-} from "../modules/auth/auth.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+} from "./auth.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
 const rethrowUnhandled = (res: Response, error: unknown): Response => {
   const handled = respondHttpError(res, error);
@@ -67,3 +67,5 @@ export const logout = async (_req: Request, res: Response) => {
   clearAuthCookie(res);
   return res.status(204).send();
 };
+
+

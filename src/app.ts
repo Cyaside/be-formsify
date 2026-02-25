@@ -6,11 +6,11 @@ import fs from "node:fs";
 import path from "node:path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yaml";
-import routes from "./routes";
+import routes from "./modules/http/root.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { securityHeaders } from "./middleware/securityHeaders";
 import { rateLimitAllRequests } from "./middleware/rateLimit";
-import { validateRuntimeSecurityConfig } from "./lib/config";
+import { validateRuntimeSecurityConfig } from "./shared/config/config";
 
 validateRuntimeSecurityConfig();
 
@@ -70,3 +70,4 @@ try {
 app.use(errorHandler);
 
 export default app;
+

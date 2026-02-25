@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const authRepository = {
   findUserByEmail: (email: string) => prisma.user.findUnique({ where: { email } }),
@@ -44,3 +44,4 @@ export const authRepository = {
       select: { id: true, email: true, name: true, provider: true, createdAt: true },
     }),
 };
+

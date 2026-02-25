@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 import { httpError } from "../../shared/errors/httpError";
 import {
   groupValidAnswerPayloads,
@@ -76,3 +76,4 @@ export const submitFormResponse = async ({
 
   return responseRecord;
 };
+

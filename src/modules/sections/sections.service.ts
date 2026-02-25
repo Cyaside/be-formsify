@@ -1,4 +1,4 @@
-import { canEditForm, canReadForm } from "../../lib/formAccess";
+import { canEditForm, canReadForm } from "../../shared/access/formAccess";
 import { httpError } from "../../shared/errors/httpError";
 import { sectionsRepository } from "./sections.repository";
 
@@ -124,3 +124,4 @@ export const deleteSectionByIdForUser = async ({
 
   await sectionsRepository.delete(sectionId);
 };
+

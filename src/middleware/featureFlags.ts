@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { isFormCollabEnabled } from "../lib/config";
+import { isFormCollabEnabled } from "../shared/config/config";
 
 export const requireFormCollabEnabled = (
   _req: Request,
@@ -12,3 +12,4 @@ export const requireFormCollabEnabled = (
 
   return next();
 };
+

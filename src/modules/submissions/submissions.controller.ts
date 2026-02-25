@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { submitFormResponse } from "../modules/submissions/submissions.service";
-import { respondHttpError } from "../shared/http/respondHttpError";
+import { submitFormResponse } from "./submissions.service";
+import { respondHttpError } from "../../shared/http/respondHttpError";
 
 export const submitForm = async (req: Request, res: Response) => {
   try {
@@ -17,3 +17,4 @@ export const submitForm = async (req: Request, res: Response) => {
     throw error;
   }
 };
+

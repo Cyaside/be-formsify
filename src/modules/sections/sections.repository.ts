@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const sectionsRepository = {
   countAnswersBySection: (sectionId: string) =>
@@ -49,3 +49,4 @@ export const sectionsRepository = {
 
   delete: (sectionId: string) => prisma.section.delete({ where: { id: sectionId } }),
 };
+

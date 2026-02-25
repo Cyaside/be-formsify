@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const collaboratorsRepository = {
   findUserById: (userId: string) =>
@@ -95,3 +95,4 @@ export const collaboratorsRepository = {
       },
     }),
 };
+

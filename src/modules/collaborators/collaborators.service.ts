@@ -1,4 +1,4 @@
-import { canManageCollaborators } from "../../lib/formAccess";
+import { canManageCollaborators } from "../../shared/access/formAccess";
 import { httpError } from "../../shared/errors/httpError";
 import { collaboratorsRepository } from "./collaborators.repository";
 
@@ -155,3 +155,4 @@ export const deleteCollaboratorForForm = async ({
 
   await collaboratorsRepository.deleteCollaborator(formId, targetUserId);
 };
+

@@ -1,14 +1,11 @@
 import { Router } from "express";
-import {
-  getBuilderSnapshot,
-  updateBuilderSnapshot,
-} from "../controllers/builderSnapshot.controller";
+import { getBuilderSnapshot, updateBuilderSnapshot } from "../builder/builder.controller";
 import {
   createCollaborator,
   deleteCollaborator,
   listCollaborators,
   updateCollaborator,
-} from "../controllers/collaborators.controller";
+} from "../collaborators/collaborators.controller";
 import {
   createForm,
   deleteForm,
@@ -17,24 +14,21 @@ import {
   listForms,
   listPublicForms,
   updateForm,
-} from "../controllers/forms.controller";
-import { createQuestion, listQuestions } from "../controllers/questions.controller";
+} from "./forms.controller";
+import { createQuestion, listQuestions } from "../questions/questions.controller";
 import {
   deleteResponse,
   getResponseDetail,
   getSummary,
   listResponses,
-} from "../controllers/responses.controller";
-import {
-  createSection,
-  listSections,
-} from "../controllers/sections.controller";
-import { submitForm } from "../controllers/submissions.controller";
-import { authRequired } from "../middleware/authRequired";
-import { requireFormCollabEnabled } from "../middleware/featureFlags";
-import { optionalAuth } from "../middleware/optionalAuth";
-import { validateRequest } from "../middleware/validateRequest";
-import { schemas } from "../validation/requestSchemas";
+} from "../responses/responses.controller";
+import { createSection, listSections } from "../sections/sections.controller";
+import { submitForm } from "../submissions/submissions.controller";
+import { authRequired } from "../../middleware/authRequired";
+import { requireFormCollabEnabled } from "../../middleware/featureFlags";
+import { optionalAuth } from "../../middleware/optionalAuth";
+import { validateRequest } from "../../middleware/validateRequest";
+import { schemas } from "../../shared/validation/requestSchemas";
 
 const router = Router();
 
@@ -163,3 +157,5 @@ router.delete(
 );
 
 export default router;
+
+

@@ -1,5 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client";
-import prisma from "../../lib/prisma";
+import prisma from "../../shared/db/prisma";
 
 export const formsRepository = {
   listForms: (params: {
@@ -53,3 +53,4 @@ export const formsRepository = {
 };
 
 export { prisma as formsPrisma };
+

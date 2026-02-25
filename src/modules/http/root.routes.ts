@@ -1,12 +1,12 @@
 import { Router } from "express";
-import authRouter from "./auth";
-import analyticsRouter from "./analytics";
-import formsRouter from "./forms";
-import questionsRouter from "./questions";
-import sectionsRouter from "./sections";
-import { login, register } from "../controllers/auth.controller";
-import { validateRequest } from "../middleware/validateRequest";
-import { schemas } from "../validation/requestSchemas";
+import authRouter from "../auth/auth.routes";
+import analyticsRouter from "../analytics/analytics.routes";
+import formsRouter from "../forms/forms.routes";
+import questionsRouter from "../questions/questions.routes";
+import sectionsRouter from "../sections/sections.routes";
+import { login, register } from "../auth/auth.controller";
+import { validateRequest } from "../../middleware/validateRequest";
+import { schemas } from "../../shared/validation/requestSchemas";
 
 const router = Router();
 
@@ -110,3 +110,5 @@ router.use("/api/questions", questionsRouter);
 router.use("/api/sections", sectionsRouter);
 
 export default router;
+
+

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { deleteQuestion, updateQuestion } from "../controllers/questions.controller";
-import { authRequired } from "../middleware/authRequired";
-import { validateRequest } from "../middleware/validateRequest";
-import { schemas } from "../validation/requestSchemas";
+import { deleteQuestion, updateQuestion } from "./questions.controller";
+import { authRequired } from "../../middleware/authRequired";
+import { validateRequest } from "../../middleware/validateRequest";
+import { schemas } from "../../shared/validation/requestSchemas";
 
 const router = Router();
 
@@ -20,3 +20,5 @@ router.delete(
 );
 
 export default router;
+
+
