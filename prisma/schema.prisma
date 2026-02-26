@@ -34,7 +34,7 @@ model User {
   id           String       @id @default(uuid())
   email        String       @unique
   passwordHash String?
-  name         String?
+  name         String?      @unique
   provider     AuthProvider @default(LOCAL)
   googleId     String?      @unique
   createdAt    DateTime     @default(now())

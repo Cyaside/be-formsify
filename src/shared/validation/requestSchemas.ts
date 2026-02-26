@@ -84,9 +84,9 @@ export const schemas = {
   idAndUserIdParams,
 
   rootRegisterBody: strictObject({
+    name: v.string({ minLength: 3, maxLength: 100 }),
     email: emailParser,
     password: v.string({ minLength: 6, maxLength: 128 }),
-    name: v.optional(v.string({ maxLength: 100, allowEmpty: true })),
   }),
 
   rootLoginBody: strictObject({

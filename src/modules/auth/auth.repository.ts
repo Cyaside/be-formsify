@@ -2,8 +2,13 @@ import prisma from "../../shared/db/prisma";
 
 export const authRepository = {
   findUserByEmail: (email: string) => prisma.user.findUnique({ where: { email } }),
+  findUserByName: (name: string) => prisma.user.findUnique({ where: { name } }),
 
-  createLocalUser: (params: { email: string; passwordHash: string; name: string | null }) =>
+  createLocalUser: (params: {
+    email: string;
+    passwordHash: string;
+    name: string;
+  }) =>
     prisma.user.create({
       data: {
         email: params.email,

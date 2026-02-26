@@ -17,9 +17,9 @@ const rethrowUnhandled = (res: Response, error: unknown): Response => {
 export const register = async (req: Request, res: Response) => {
   try {
     const payload = await registerWithEmailPassword({
+      name: req.body.name,
       email: req.body.email,
       password: req.body.password,
-      name: req.body.name,
     });
     setAuthCookie(res, payload.token);
     return res.status(201).json(payload);

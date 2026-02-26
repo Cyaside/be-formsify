@@ -65,20 +65,20 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export const registerWithEmailPassword = async ({
+  name: rawName,
   email: rawEmail,
   password: rawPassword,
-  name: rawName,
 }: {
+  name?: unknown;
   email?: unknown;
   password?: unknown;
-  name?: unknown;
 }) => {
+  const name = String(rawName ?? "").trim();
   const email = String(rawEmail ?? "").trim().toLowerCase();
   const password = String(rawPassword ?? "");
-  const name = String(rawName ?? "").trim();
 
-  if (!email || !password) {
-    throw httpError(400, "Email and password are required");
+  if (!name || !email || !password) {
+    throw httpError(400, "Name, email, and password are required");
   }
   if (password.length < 6) {
     throw httpError(400, "Password must be at least 6 characters");
@@ -88,12 +88,16 @@ export const registerWithEmailPassword = async ({
   if (existing) {
     throw httpError(409, "Email is already registered");
   }
+  const existingName = await authRepository.findUserByName(name);
+  if (existingName) {
+    throw httpError(409, "Name is already taken");
+  }
 
   const passwordHash = await hashPassword(password);
   const user = await authRepository.createLocalUser({
+    name,
     email,
     passwordHash,
-    name: name || null,
   });
 
   const token = signToken({ id: user.id, email: user.email });
@@ -205,6 +209,12 @@ export const loginWithGoogle = async ({
       if (existingByEmail) {
         user = await authRepository.updateUserGoogleLink({ id: existingByEmail.id, googleId });
       } else {
+        if (name) {
+          const existingByName = await authRepository.findUserByName(name);
+          if (existingByName) {
+            throw httpError(409, "Name is already taken");
+          }
+        }
         user = await authRepository.createGoogleUser({ email, name, googleId });
       }
     }
@@ -220,7 +230,7 @@ export const loginWithGoogle = async ({
       },
     };
   } catch (error) {
-    if (error instanceof HttpServiceError && error.status === 500) {
+    if (error instanceof HttpServiceError) {
       throw error;
     }
 
