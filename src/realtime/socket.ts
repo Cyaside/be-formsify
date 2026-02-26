@@ -238,6 +238,58 @@ const emitSocketError = (
   socket.emit(COLLAB_EVENTS.error, payload);
 };
 
+const logRealtimeHandlerError = (eventName: string, error: unknown) => {
+  console.error(`[realtime:${eventName}]`, error);
+};
+
+const emitInternalRealtimeError = (socket: CollabSocket) => {
+  emitSocketError(socket, {
+    message: "Internal realtime error",
+    code: "UNKNOWN",
+  });
+};
+
+const withSafeSocketAsyncHandler = <TArgs extends unknown[]>(
+  socket: CollabSocket,
+  eventName: string,
+  handler: (...args: TArgs) => Promise<void>,
+) => {
+  return (...args: TArgs) => {
+    void handler(...args).catch((error) => {
+      logRealtimeHandlerError(eventName, error);
+      emitInternalRealtimeError(socket);
+    });
+  };
+};
+
+const withSafeJoinHandler = (
+  socket: CollabSocket,
+  handler: (rawPayload: unknown, ack?: (response: CollabJoinAck) => void) => Promise<void>,
+) => {
+  return (rawPayload: unknown, ack?: (response: CollabJoinAck) => void) => {
+    let ackSent = false;
+    const trackedAck =
+      typeof ack === "function"
+        ? ((response: CollabJoinAck) => {
+            ackSent = true;
+            ack(response);
+          })
+        : undefined;
+
+    void handler(rawPayload, trackedAck).catch((error) => {
+      logRealtimeHandlerError(COLLAB_EVENTS.join, error);
+      if (!ackSent) {
+        trackedAck?.({
+          ok: false,
+          status: 500,
+          message: "Internal realtime error",
+        });
+      }
+      emitInternalRealtimeError(socket);
+    });
+  };
+};
+
 const emitAuthErrorAndDisconnect = (socket: CollabSocket, message: string) => {
   emitSocketError(socket, { message, code: "UNAUTHORIZED" });
   socket.disconnect(true);
@@ -295,7 +347,7 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
       user: { id: user.id, email: user.email },
     });
 
-    socket.on(COLLAB_EVENTS.join, async (rawPayload, ack) => {
+    socket.on(COLLAB_EVENTS.join, withSafeJoinHandler(socket, async (rawPayload, ack) => {
       const payload = parseJoinPayload(rawPayload);
       if (!payload) {
         const response: CollabJoinAck = { ok: false, status: 400, message: "Invalid formId" };
@@ -342,16 +394,16 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
       });
 
       emitPresence(io, payload.formId);
-    });
+    }));
 
-    socket.on(COLLAB_EVENTS.leave, async (rawPayload) => {
+    socket.on(COLLAB_EVENTS.leave, withSafeSocketAsyncHandler(socket, COLLAB_EVENTS.leave, async (rawPayload) => {
       const payload = parseLeavePayload(rawPayload);
       if (!payload) return;
 
       removeParticipant(payload.formId, socket.id);
       await socket.leave(formRoomName(payload.formId));
       emitPresence(io, payload.formId);
-    });
+    }));
 
     socket.on(COLLAB_EVENTS.presenceUpdate, (rawPayload) => {
       const payload = parsePresenceUpdatePayload(rawPayload);
@@ -379,7 +431,7 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
       emitPresence(io, payload.formId);
     });
 
-    socket.on(COLLAB_EVENTS.syncRequest, async (rawPayload) => {
+    socket.on(COLLAB_EVENTS.syncRequest, withSafeSocketAsyncHandler(socket, COLLAB_EVENTS.syncRequest, async (rawPayload) => {
       const payload = parseSyncRequestPayload(rawPayload);
       if (!payload) {
         emitSocketError(socket, { message: "Invalid sync payload", code: "INVALID_PAYLOAD" });
@@ -401,9 +453,9 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         version: latestSnapshot?.version ?? access.form.version,
         snapshot: latestSnapshot?.snapshot ?? null,
       });
-    });
+    }));
 
-    socket.on(COLLAB_EVENTS.op, async (rawPayload) => {
+    socket.on(COLLAB_EVENTS.op, withSafeSocketAsyncHandler(socket, COLLAB_EVENTS.op, async (rawPayload) => {
       const payload = parseOpPayload(rawPayload);
       if (!payload) {
         emitSocketError(socket, { message: "Invalid operation payload", code: "INVALID_PAYLOAD" });
@@ -455,7 +507,7 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
           email: user.email,
         },
       });
-    });
+    }));
 
     socket.on("disconnecting", () => {
       const joinedFormIds = getJoinedFormIds(socket);

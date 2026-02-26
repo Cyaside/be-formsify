@@ -8,6 +8,11 @@ type OwnerGuardForm = {
   description: string | null;
 };
 
+type SummaryQuestion = Awaited<
+  ReturnType<typeof responsesRepository.findQuestionsForSummary>
+>[number];
+type SummaryQuestionOption = SummaryQuestion["options"][number];
+
 const ensureOwner = async (formId: string, userId: string): Promise<OwnerGuardForm> => {
   const form = await responsesRepository.findFormOwnerBrief(formId);
   if (!form) {
@@ -106,7 +111,7 @@ export const getFormSummaryForOwner = async ({
     answersByQuestion.set(answer.questionId, existing);
   });
 
-  const summary = (questions as any[]).map((question) => {
+  const summary = questions.map((question) => {
     const questionAnswers = answersByQuestion.get(question.id) ?? [];
     if (question.type === "SHORT_ANSWER") {
       return {
@@ -118,7 +123,7 @@ export const getFormSummaryForOwner = async ({
         }).length,
       };
     }
-    const opts = (question.options ?? []) as any[];
+    const opts: SummaryQuestionOption[] = question.options ?? [];
 
     const counts: Record<string, number> = {};
     opts.forEach((option) => {
