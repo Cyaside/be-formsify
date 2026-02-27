@@ -1,6 +1,12 @@
 import { Prisma } from "../../generated/prisma/client";
 import prisma from "../../shared/db/prisma";
 
+const DATE_TRUNC_BUCKET_LITERAL: Record<"day" | "week" | "month", string> = {
+  day: "'day'",
+  week: "'week'",
+  month: "'month'",
+};
+
 export const analyticsRepository = {
   countFormsByOwner: (userId: string) => prisma.form.count({ where: { ownerId: userId } }),
   countResponsesByOwner: (userId: string) =>
@@ -10,10 +16,11 @@ export const analyticsRepository = {
     from: Date,
     endExclusive: Date,
     bucket: "day" | "week" | "month",
-  ) =>
-    prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>(
+  ) => {
+    const bucketLiteral = Prisma.raw(DATE_TRUNC_BUCKET_LITERAL[bucket]);
+    return prisma.$queryRaw<Array<{ bucket: Date; count: bigint }>>(
       Prisma.sql`
-        SELECT date_trunc(${bucket}, r."createdAt") AS bucket,
+        SELECT date_trunc(${bucketLiteral}, r."createdAt") AS bucket,
                COUNT(*)::bigint AS count
         FROM "Response" r
         JOIN "Form" f ON f.id = r."formId"
@@ -23,6 +30,7 @@ export const analyticsRepository = {
         GROUP BY 1
         ORDER BY 1 ASC
       `,
-    ),
+    );
+  },
 };
 
