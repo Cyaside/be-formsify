@@ -54,7 +54,7 @@ export const getGlobalAnalyticsForUser = async ({
   const range = getAnalyticsRange({ from, to });
   const normalizedBucket = getAnalyticsBucket(bucket);
 
-  const [totalForms, totalResponses, trend] = await Promise.all([
+  const [totalForms, totalResponses, trend, latestResponse] = await Promise.all([
     analyticsRepository.countFormsByOwner(userId),
     analyticsRepository.countResponsesByOwner(userId),
     analyticsRepository.queryResponseTrend(
@@ -63,6 +63,7 @@ export const getGlobalAnalyticsForUser = async ({
       range.endExclusive,
       normalizedBucket,
     ),
+    analyticsRepository.findLatestResponseByOwner(userId),
   ]);
 
   return {
@@ -74,6 +75,7 @@ export const getGlobalAnalyticsForUser = async ({
       date: item.bucket.toISOString(),
       count: Number(item.count),
     })),
+    latestResponseAt: latestResponse?.createdAt.toISOString() ?? null,
     range: {
       from: range.from.toISOString(),
       to: range.to.toISOString(),

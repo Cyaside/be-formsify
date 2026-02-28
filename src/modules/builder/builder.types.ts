@@ -1,5 +1,6 @@
 export type BuilderSnapshotQuestionType =
   | "SHORT_ANSWER"
+  | "PARAGRAPH"
   | "MCQ"
   | "CHECKBOX"
   | "DROPDOWN";

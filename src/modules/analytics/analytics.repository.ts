@@ -11,6 +11,12 @@ export const analyticsRepository = {
   countFormsByOwner: (userId: string) => prisma.form.count({ where: { ownerId: userId } }),
   countResponsesByOwner: (userId: string) =>
     prisma.response.count({ where: { form: { ownerId: userId } } }),
+  findLatestResponseByOwner: (userId: string) =>
+    prisma.response.findFirst({
+      where: { form: { ownerId: userId } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
   queryResponseTrend: (
     userId: string,
     from: Date,

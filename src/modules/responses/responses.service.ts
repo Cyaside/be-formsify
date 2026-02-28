@@ -113,7 +113,7 @@ export const getFormSummaryForOwner = async ({
 
   const summary = questions.map((question) => {
     const questionAnswers = answersByQuestion.get(question.id) ?? [];
-    if (question.type === "SHORT_ANSWER") {
+    if (question.type === "SHORT_ANSWER" || question.type === "PARAGRAPH") {
       return {
         questionId: question.id,
         title: question.title,

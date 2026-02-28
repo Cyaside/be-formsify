@@ -1212,7 +1212,7 @@ components:
         description: { type: string, nullable: true }
         type:
           type: string
-          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+          enum: [SHORT_ANSWER, PARAGRAPH, MCQ, CHECKBOX, DROPDOWN]
         required: { type: boolean }
         order: { type: integer }
         options:
@@ -1326,7 +1326,7 @@ components:
         description: { type: string, nullable: true }
         type:
           type: string
-          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+          enum: [SHORT_ANSWER, PARAGRAPH, MCQ, CHECKBOX, DROPDOWN]
         required: { type: boolean }
         order: { type: integer }
         options:
@@ -1349,7 +1349,7 @@ components:
         title: { type: string }
         type:
           type: string
-          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+          enum: [SHORT_ANSWER, PARAGRAPH, MCQ, CHECKBOX, DROPDOWN]
         options:
           type: array
           items:
@@ -1442,7 +1442,7 @@ components:
               title: { type: string }
               type:
                 type: string
-                enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+                enum: [SHORT_ANSWER, PARAGRAPH, MCQ, CHECKBOX, DROPDOWN]
               totalAnswers: { type: integer }
               options:
                 type: array
@@ -1471,6 +1471,7 @@ components:
                 properties:
                   date: { type: string, format: date-time }
                   count: { type: integer }
+            latestResponseAt: { type: string, format: date-time, nullable: true }
             range:
               type: object
               properties:
@@ -1554,7 +1555,7 @@ components:
         sectionId: { type: string }
         type:
           type: string
-          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+          enum: [SHORT_ANSWER, PARAGRAPH, MCQ, CHECKBOX, DROPDOWN]
         required: { type: boolean }
         order: { type: integer }
         options:
@@ -1571,7 +1572,7 @@ components:
         sectionId: { type: string }
         type:
           type: string
-          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+          enum: [SHORT_ANSWER, PARAGRAPH, MCQ, CHECKBOX, DROPDOWN]
         required: { type: boolean }
         order: { type: integer }
         options:
@@ -1603,5 +1604,5 @@ components:
             properties:
               questionId: { type: string }
               optionId: { type: string }
-              text: { type: string }
+              text: { type: string, maxLength: 1000 }
             required: [questionId]

@@ -113,7 +113,7 @@ export type CollabJoinedServerPayload = {
       sectionId: string;
       title: string;
       description: string | null;
-      type: "SHORT_ANSWER" | "MCQ" | "CHECKBOX" | "DROPDOWN";
+      type: "SHORT_ANSWER" | "PARAGRAPH" | "MCQ" | "CHECKBOX" | "DROPDOWN";
       required: boolean;
       order: number;
       options: string[];

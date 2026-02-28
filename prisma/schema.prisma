@@ -25,6 +25,7 @@ enum CollaboratorRole {
 
 enum QuestionType {
   SHORT_ANSWER
+  PARAGRAPH
   MCQ
   CHECKBOX
   DROPDOWN

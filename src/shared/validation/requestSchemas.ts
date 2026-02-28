@@ -3,7 +3,7 @@ import { strictObject, v } from "./requestValidation";
 const MAX_TEXT_SHORT = 200;
 const MAX_TEXT_MEDIUM = 500;
 const MAX_TEXT_LONG = 5000;
-const MAX_ANSWER_TEXT = 5000;
+const MAX_ANSWER_TEXT = 1000;
 const MAX_OPTIONS = 100;
 const MAX_ANSWERS_PER_SUBMISSION = 1000;
 const MAX_BUILDER_SECTIONS = 200;
@@ -70,7 +70,7 @@ const builderSnapshotQuestionParser = strictObject({
   sectionId: v.id(),
   title: v.string({ maxLength: MAX_TEXT_MEDIUM, allowEmpty: true }),
   description: optionalStringOrNull(MAX_TEXT_LONG),
-  type: v.enum(["SHORT_ANSWER", "MCQ", "CHECKBOX", "DROPDOWN"] as const),
+  type: v.enum(["SHORT_ANSWER", "PARAGRAPH", "MCQ", "CHECKBOX", "DROPDOWN"] as const),
   required: v.boolean({ coerceString: true }),
   order: optionalInt(0, 1_000_000),
   options: v.optional(optionsArrayParser),
@@ -175,7 +175,7 @@ export const schemas = {
   createQuestionBody: strictObject({
     title: v.string({ maxLength: MAX_TEXT_MEDIUM }),
     description: optionalStringOrNull(MAX_TEXT_LONG),
-    type: v.enum(["SHORT_ANSWER", "MCQ", "CHECKBOX", "DROPDOWN"] as const),
+    type: v.enum(["SHORT_ANSWER", "PARAGRAPH", "MCQ", "CHECKBOX", "DROPDOWN"] as const),
     required: optionalBool(),
     order: optionalInt(0, 1_000_000),
     sectionId: sectionIdOptional,
@@ -185,7 +185,9 @@ export const schemas = {
   updateQuestionBody: strictObject({
     title: v.optional(v.string({ maxLength: MAX_TEXT_MEDIUM })),
     description: optionalStringOrNull(MAX_TEXT_LONG),
-    type: v.optional(v.enum(["SHORT_ANSWER", "MCQ", "CHECKBOX", "DROPDOWN"] as const)),
+    type: v.optional(
+      v.enum(["SHORT_ANSWER", "PARAGRAPH", "MCQ", "CHECKBOX", "DROPDOWN"] as const),
+    ),
     required: optionalBool(),
     order: optionalInt(0, 1_000_000),
     sectionId: v.optional(v.id()),

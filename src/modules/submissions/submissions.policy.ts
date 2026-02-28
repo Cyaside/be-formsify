@@ -7,7 +7,7 @@ export type AnswerPayload = {
 export type SubmissionQuestion = {
   id: string;
   title: string;
-  type: "SHORT_ANSWER" | "MCQ" | "CHECKBOX" | "DROPDOWN";
+  type: "SHORT_ANSWER" | "PARAGRAPH" | "MCQ" | "CHECKBOX" | "DROPDOWN";
   required: boolean;
   options: Array<{ id: string }>;
 };
@@ -29,6 +29,9 @@ const requiredQuestionMessage = (questionTitle: string) =>
 const invalidAnswerMessage = (questionTitle: string) =>
   `Invalid answer for question: ${questionTitle}`;
 
+const shortAnswerMaxLength = 100;
+const paragraphMaxLength = 1000;
+
 const toOptionIds = (entries: AnswerPayload[]) =>
   entries
     .map((entry) => normalizeOptionId(entry.optionId))
@@ -41,6 +44,15 @@ const prepareShortAnswer = (question: SubmissionQuestion, entries: AnswerPayload
   const texts = entries
     .map((entry) => normalizeText(entry.text))
     .filter((text) => text.length > 0);
+  const maxLength =
+    question.type === "PARAGRAPH" ? paragraphMaxLength : shortAnswerMaxLength;
+  const exceedsLimit = texts.some((text) => text.length > maxLength);
+  if (exceedsLimit) {
+    return {
+      error: invalidAnswerMessage(question.title),
+      answers: [] as PreparedAnswer[],
+    };
+  }
 
   if (question.required && texts.length === 0) {
     return {
@@ -82,7 +94,7 @@ const prepareCheckbox = (question: SubmissionQuestion, optionIds: string[]) => {
 };
 
 export const prepareQuestionAnswers = (question: SubmissionQuestion, entries: AnswerPayload[]) => {
-  if (question.type === "SHORT_ANSWER") {
+  if (question.type === "SHORT_ANSWER" || question.type === "PARAGRAPH") {
     return prepareShortAnswer(question, entries);
   }
 

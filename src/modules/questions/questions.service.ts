@@ -2,7 +2,7 @@ import { canEditForm, canReadForm } from "../../shared/access/formAccess";
 import { httpError } from "../../shared/errors/httpError";
 import { questionsPrisma, questionsRepository } from "./questions.repository";
 
-const QUESTION_TYPES = ["SHORT_ANSWER", "MCQ", "CHECKBOX", "DROPDOWN"] as const;
+const QUESTION_TYPES = ["SHORT_ANSWER", "PARAGRAPH", "MCQ", "CHECKBOX", "DROPDOWN"] as const;
 type QuestionType = (typeof QUESTION_TYPES)[number];
 type QuestionBody = Record<string, unknown>;
 
