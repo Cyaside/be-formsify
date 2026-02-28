@@ -8,7 +8,7 @@ info:
     Untuk request mutating dari browser (`POST`/`PUT`/`PATCH`/`DELETE`), origin harus termasuk trusted origin backend.
     Jika tidak, API dapat mengembalikan `403` dengan kode `CORS_ORIGIN_NOT_ALLOWED` atau `CSRF_ORIGIN_NOT_ALLOWED`.
 servers:
-  - url: http://localhost:4000
+  - url: https://be-formsify-production.up.railway.app
 
 tags:
   - name: Health
