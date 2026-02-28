@@ -476,6 +476,29 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         return;
       }
 
+      if (access.form.isPublished) {
+        const hasResponse = await prisma.response.findFirst({
+          where: { formId: payload.formId },
+          select: { id: true },
+        });
+        if (hasResponse) {
+          const lockMessage = "Builder snapshot updates are locked once the form has responses";
+          io.to(formRoomName(payload.formId)).emit(COLLAB_EVENTS.status, {
+            formId: payload.formId,
+            kind: "RESPONSES_LOCKED",
+            message: lockMessage,
+            latestVersion: access.form.version,
+          });
+          socket.emit(COLLAB_EVENTS.opRejected, {
+            formId: payload.formId,
+            opId: payload.opId,
+            reason: "RESPONSES_LOCKED",
+            latestVersion: access.form.version,
+          });
+          return;
+        }
+      }
+
       if (payload.baseVersion !== access.form.version) {
         socket.emit(COLLAB_EVENTS.opRejected, {
           formId: payload.formId,

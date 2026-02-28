@@ -562,6 +562,7 @@ paths:
       description: |
         Persist collaboration snapshot secara atomik dengan `baseVersion`.
         Mengembalikan `409` jika version conflict atau form sudah memiliki response (lock existing).
+        Saat lock karena response sudah ada, channel realtime juga akan mem-broadcast status `RESPONSES_LOCKED`.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -605,6 +606,7 @@ paths:
       summary: List form collaborators (owner only, feature-flagged)
       description: |
         Mengembalikan owner dan daftar collaborator editor.
+        Jika caller bukan owner (mis. role `EDITOR`), endpoint mengembalikan `403` secara expected.
         Jika feature flag backend collab mati, endpoint dapat mengembalikan `404`.
       security:
         - bearerAuth: []
@@ -1603,4 +1605,3 @@ components:
               optionId: { type: string }
               text: { type: string }
             required: [questionId]
-
