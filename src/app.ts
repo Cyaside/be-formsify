@@ -52,16 +52,23 @@ app.use(createCsrfGuard({ allowedOrigins: corsOrigins }));
 
 app.use(routes);
 
-const docsPath = path.join(process.cwd(), "docs", "openapi.yaml");
-try {
-  const raw = fs.readFileSync(docsPath, "utf8");
-  const spec = YAML.parse(raw) as Record<string, unknown>;
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(spec));
-  app.get("/api-docs.json", (_req, res) => {
-    res.json(spec);
-  });
-} catch {
-  // Skip docs if spec not found or invalid.
+const docsPathCandidates = [
+  path.join(process.cwd(), "docs", "openapi.yaml"),
+  path.resolve(__dirname, "..", "docs", "openapi.yaml"),
+  path.join(process.cwd(), "be-formsify", "docs", "openapi.yaml"),
+];
+const docsPath = docsPathCandidates.find((candidate) => fs.existsSync(candidate));
+if (docsPath) {
+  try {
+    const raw = fs.readFileSync(docsPath, "utf8");
+    const spec = YAML.parse(raw) as Record<string, unknown>;
+    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(spec));
+    app.get("/api-docs.json", (_req, res) => {
+      res.json(spec);
+    });
+  } catch {
+    // Skip docs if spec not found or invalid.
+  }
 }
 
 app.use(errorHandler);
