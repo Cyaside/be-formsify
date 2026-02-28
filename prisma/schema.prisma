@@ -18,6 +18,11 @@ enum AuthProvider {
   GOOGLE
 }
 
+enum CollaboratorRole {
+  OWNER
+  EDITOR
+}
+
 enum QuestionType {
   SHORT_ANSWER
   MCQ
@@ -29,13 +34,14 @@ model User {
   id           String       @id @default(uuid())
   email        String       @unique
   passwordHash String?
-  name         String?
+  name         String?      @unique
   provider     AuthProvider @default(LOCAL)
   googleId     String?      @unique
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  forms Form[]
+  forms           Form[]
+  collaborations  FormCollaborator[]
 }
 
 model Form {
@@ -47,16 +53,33 @@ model Form {
   isPublished     Boolean  @default(false)
   isClosed        Boolean  @default(false)
   responseLimit   Int?
+  version         Int      @default(0)
   ownerId         String
   owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  sections  Section[]
-  questions Question[]
-  responses Response[]
+  sections      Section[]
+  questions     Question[]
+  responses     Response[]
+  collaborators FormCollaborator[]
 
   @@index([ownerId])
+}
+
+model FormCollaborator {
+  formId     String
+  userId     String
+  role       CollaboratorRole @default(EDITOR)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([formId, userId])
+  @@index([formId])
+  @@index([userId])
 }
 
 model Section {
