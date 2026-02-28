@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "prisma generate && tsc && node scripts/copyOpenApi.js",
+    "build": "prisma generate && tsc && node -e \"const fs=require('node:fs');const path=require('node:path');const src=path.join(process.cwd(),'docs','openapi.yaml');const outDir=path.join(process.cwd(),'dist','docs');const out=path.join(outDir,'openapi.yaml');if(fs.existsSync(src)){fs.mkdirSync(outDir,{recursive:true});fs.copyFileSync(src,out);console.log('[build] copied OpenAPI spec -> '+out);}else{console.warn('[build] openapi.yaml not found at '+src+', skipping copy');}\"",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
