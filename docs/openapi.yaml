@@ -1,0 +1,1606 @@
+openapi: 3.0.3
+info:
+  title: Formsify API
+  version: 1.0.0
+  description: |
+    Dokumentasi API untuk backend Formsify.
+    Auth dapat menggunakan Bearer token atau cookie `formsify_token`.
+    Untuk request mutating dari browser (`POST`/`PUT`/`PATCH`/`DELETE`), origin harus termasuk trusted origin backend.
+    Jika tidak, API dapat mengembalikan `403` dengan kode `CORS_ORIGIN_NOT_ALLOWED` atau `CSRF_ORIGIN_NOT_ALLOWED`.
+servers:
+  - url: http://localhost:4000
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Forms
+  - name: Collaboration
+  - name: Questions
+  - name: Sections
+  - name: Responses
+  - name: Submissions
+  - name: Analytics
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /register:
+    post:
+      tags: [Auth]
+      summary: Register user (alias)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /login:
+    post:
+      tags: [Auth]
+      summary: Login user (alias)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/auth/google:
+    post:
+      tags: [Auth]
+      summary: Google OAuth login/register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleAuthRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current user
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/forms:
+    get:
+      tags: [Forms]
+      summary: List forms owned by user
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by title/description
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [all, draft, published]
+          description: Filter by publish status
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [newest, oldest]
+          description: Sort by updatedAt
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Form"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Forms]
+      summary: Create form
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormCreateRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Form"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/forms/public:
+    get:
+      tags: [Forms]
+      summary: List public forms (paginated)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            maximum: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedForms"
+
+  /api/forms/collaborations:
+    get:
+      tags: [Collaboration]
+      summary: List forms where current user is collaborator editor (feature-flagged)
+      description: |
+        Mengembalikan daftar form yang dapat diedit user sebagai collaborator (`EDITOR`) dan bukan owner.
+        Mendukung query `search`, `status`, dan `sort` seperti endpoint `/api/forms`.
+        Jika feature flag backend collab mati, endpoint dapat mengembalikan `404`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by title/description/owner name/email
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [all, draft, published]
+          description: Filter by publish status
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [newest, oldest]
+          description: Sort by updatedAt
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Form"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/forms/{id}:
+    get:
+      tags: [Forms]
+      summary: Get form detail (published or owner)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Form"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Forms]
+      summary: Update form
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Form"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Forms]
+      summary: Delete form
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/forms/{id}/questions:
+    get:
+      tags: [Questions]
+      summary: List questions for form
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Question"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Questions]
+      summary: Create question for form
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionCreateRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Question"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/forms/{id}/sections:
+    get:
+      tags: [Sections]
+      summary: List sections for form
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Section"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Sections]
+      summary: Create section for form
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SectionCreateRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Section"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/forms/{id}/builder-snapshot:
+    get:
+      tags: [Collaboration]
+      summary: Get builder snapshot + version (feature-flagged)
+      description: |
+        Endpoint collaboration untuk snapshot builder atomik.
+        Jika `ENABLE_FORM_COLLAB=false`, endpoint dapat mengembalikan `404`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderSnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Collaboration]
+      summary: Update builder snapshot atomically with version check (feature-flagged)
+      description: |
+        Persist collaboration snapshot secara atomik dengan `baseVersion`.
+        Mengembalikan `409` jika version conflict atau form sudah memiliki response (lock existing).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuilderSnapshotUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderSnapshotResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Conflict (version mismatch or responses lock)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderSnapshotConflictResponse"
+
+  /api/forms/{id}/collaborators:
+    get:
+      tags: [Collaboration]
+      summary: List form collaborators (owner only, feature-flagged)
+      description: |
+        Mengembalikan owner dan daftar collaborator editor.
+        Jika feature flag backend collab mati, endpoint dapat mengembalikan `404`.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormCollaboratorsPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Collaboration]
+      summary: Add collaborator by email or userId (owner only, feature-flagged)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCollaboratorRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FormCollaborator"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/forms/{id}/collaborators/{userId}:
+    patch:
+      tags: [Collaboration]
+      summary: Update collaborator role (owner only, feature-flagged)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCollaboratorRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FormCollaborator"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Collaboration]
+      summary: Remove collaborator (owner only, feature-flagged)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/questions/{id}:
+    put:
+      tags: [Questions]
+      summary: Update question
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Question"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Questions]
+      summary: Delete question
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/sections/{id}:
+    put:
+      tags: [Sections]
+      summary: Update section
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SectionUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Section"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Sections]
+      summary: Delete section (must be empty; form must keep at least one section)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/forms/{id}/responses:
+    get:
+      tags: [Responses]
+      summary: List responses for a form (owner only)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          description: Optional. If provided (or limit provided), response is paginated.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+          description: Optional. Max 50. Enables pagination when provided.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsesPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/forms/{id}/summary:
+    get:
+      tags: [Responses]
+      summary: Get summary stats per question (owner only)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/forms/{id}/responses/{responseId}:
+    get:
+      tags: [Responses]
+      summary: Get response detail (owner only)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: responseId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseDetailPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Responses]
+      summary: Delete a response (owner only)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: responseId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/analytics/global:
+    get:
+      tags: [Analytics]
+      summary: Get aggregate analytics across forms owned by current user
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+          description: Start date (YYYY-MM-DD)
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+          description: End date (YYYY-MM-DD)
+        - in: query
+          name: bucket
+          schema:
+            type: string
+            enum: [day, week, month]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsGlobalPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/forms/{id}/submit:
+    post:
+      tags: [Submissions]
+      summary: Submit form response (public)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Response"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: formsify_token
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          description: Kode error aplikasi (contoh `CORS_ORIGIN_NOT_ALLOWED`, `CSRF_ORIGIN_NOT_ALLOWED`).
+        origin:
+          type: string
+          nullable: true
+          description: Nilai origin request yang diblokir (jika relevan).
+        hint:
+          type: string
+          nullable: true
+          description: Petunjuk konfigurasi untuk memperbaiki error origin.
+      required: [message]
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string, nullable: true }
+        provider: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Form:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        thankYouTitle: { type: string }
+        thankYouMessage: { type: string }
+        isPublished: { type: boolean }
+        isClosed: { type: boolean }
+        responseLimit: { type: integer, nullable: true }
+        version: { type: integer }
+        ownerId: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        owner:
+          $ref: "#/components/schemas/User"
+
+    CollaboratorUser:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string, nullable: true }
+      required: [id, email]
+
+    FormCollaborator:
+      type: object
+      properties:
+        formId: { type: string }
+        userId: { type: string }
+        role:
+          type: string
+          enum: [EDITOR]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        user:
+          $ref: "#/components/schemas/CollaboratorUser"
+      required: [formId, userId, role, createdAt, updatedAt, user]
+
+    FormCollaboratorOwner:
+      type: object
+      properties:
+        userId: { type: string }
+        role:
+          type: string
+          enum: [OWNER]
+        user:
+          $ref: "#/components/schemas/CollaboratorUser"
+      required: [userId, role, user]
+
+    FormCollaboratorsPayload:
+      type: object
+      properties:
+        owner:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/FormCollaboratorOwner"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormCollaborator"
+      required: [owner, data]
+
+    BuilderSnapshotSection:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        order: { type: integer }
+      required: [id, title, description, order]
+
+    BuilderSnapshotQuestion:
+      type: object
+      properties:
+        id: { type: string }
+        sectionId: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        type:
+          type: string
+          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+        required: { type: boolean }
+        order: { type: integer }
+        options:
+          type: array
+          items:
+            type: string
+      required: [id, sectionId, title, description, type, required, order, options]
+
+    BuilderSnapshot:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        thankYouTitle: { type: string }
+        thankYouMessage: { type: string }
+        isClosed: { type: boolean }
+        responseLimit: { type: integer, nullable: true }
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/BuilderSnapshotSection"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/BuilderSnapshotQuestion"
+      required:
+        [title, description, thankYouTitle, thankYouMessage, isClosed, responseLimit, sections, questions]
+
+    BuilderSnapshotData:
+      type: object
+      properties:
+        formId: { type: string }
+        version: { type: integer }
+        snapshot:
+          $ref: "#/components/schemas/BuilderSnapshot"
+      required: [formId, version, snapshot]
+
+    BuilderSnapshotResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/BuilderSnapshotData"
+      required: [data]
+
+    BuilderSnapshotUpdateRequest:
+      type: object
+      properties:
+        baseVersion: { type: integer, minimum: 0 }
+        snapshot:
+          $ref: "#/components/schemas/BuilderSnapshot"
+      required: [baseVersion, snapshot]
+
+    BuilderSnapshotConflictResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [VERSION_CONFLICT, RESPONSES_LOCKED]
+        message: { type: string }
+        latestVersion: { type: integer, nullable: true }
+        snapshot:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/BuilderSnapshot"
+      required: [code, message, latestVersion, snapshot]
+
+    CreateCollaboratorRequest:
+      type: object
+      description: Provide exactly one of `email` or `userId`.
+      properties:
+        email: { type: string, format: email }
+        userId: { type: string }
+        role:
+          type: string
+          enum: [EDITOR]
+      required: [role]
+
+    UpdateCollaboratorRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [EDITOR]
+      required: [role]
+
+    Option:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        order: { type: integer }
+
+    Section:
+      type: object
+      properties:
+        id: { type: string }
+        formId: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        order: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Question:
+      type: object
+      properties:
+        id: { type: string }
+        formId: { type: string }
+        sectionId: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        type:
+          type: string
+          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+        required: { type: boolean }
+        order: { type: integer }
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/Option"
+
+    Answer:
+      type: object
+      properties:
+        id: { type: string }
+        questionId: { type: string }
+        optionId: { type: string, nullable: true }
+        text: { type: string, nullable: true }
+
+    ResponseAnswerQuestion:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        type:
+          type: string
+          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              label: { type: string }
+
+    ResponseAnswerDetailed:
+      type: object
+      properties:
+        id: { type: string }
+        questionId: { type: string }
+        optionId: { type: string, nullable: true }
+        text: { type: string, nullable: true }
+        question:
+          $ref: "#/components/schemas/ResponseAnswerQuestion"
+
+    Response:
+      type: object
+      properties:
+        id: { type: string }
+        formId: { type: string }
+        createdAt: { type: string, format: date-time }
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Answer"
+
+    ResponseDetailed:
+      type: object
+      properties:
+        id: { type: string }
+        formId: { type: string }
+        createdAt: { type: string, format: date-time }
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResponseAnswerDetailed"
+
+    ResponsesPayload:
+      type: object
+      properties:
+        form:
+          type: object
+          properties:
+            id: { type: string }
+            title: { type: string }
+            description: { type: string, nullable: true }
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResponseDetailed"
+        meta:
+          type: object
+          nullable: true
+          properties:
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            totalPages: { type: integer }
+
+    ResponseDetailPayload:
+      type: object
+      properties:
+        form:
+          type: object
+          properties:
+            id: { type: string }
+            title: { type: string }
+            description: { type: string, nullable: true }
+        data:
+          $ref: "#/components/schemas/ResponseDetailed"
+
+    SummaryPayload:
+      type: object
+      properties:
+        form:
+          type: object
+          properties:
+            id: { type: string }
+            title: { type: string }
+            description: { type: string, nullable: true }
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              questionId: { type: string }
+              title: { type: string }
+              type:
+                type: string
+                enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+              totalAnswers: { type: integer }
+              options:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    label: { type: string }
+                    count: { type: integer }
+
+    AnalyticsGlobalPayload:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            totals:
+              type: object
+              properties:
+                forms: { type: integer }
+                responses: { type: integer }
+            responseTrend:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: { type: string, format: date-time }
+                  count: { type: integer }
+            range:
+              type: object
+              properties:
+                from: { type: string, format: date-time }
+                to: { type: string, format: date-time }
+                bucket:
+                  type: string
+                  enum: [day, week, month]
+
+    PaginatedForms:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Form"
+        meta:
+          type: object
+          properties:
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            totalPages: { type: integer }
+
+    RegisterRequest:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+        name: { type: string }
+      required: [email, password]
+
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+      required: [email, password]
+
+    GoogleAuthRequest:
+      type: object
+      properties:
+        idToken: { type: string }
+        code: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+
+    FormCreateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        thankYouTitle: { type: string }
+        thankYouMessage: { type: string }
+        isPublished: { type: boolean }
+        isClosed: { type: boolean }
+        responseLimit: { type: integer, nullable: true, minimum: 1, maximum: 100000 }
+      required: [title]
+
+    FormUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        thankYouTitle: { type: string }
+        thankYouMessage: { type: string }
+        isPublished: { type: boolean }
+        isClosed: { type: boolean }
+        responseLimit: { type: integer, nullable: true, minimum: 1, maximum: 100000 }
+
+    QuestionCreateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        sectionId: { type: string }
+        type:
+          type: string
+          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+        required: { type: boolean }
+        order: { type: integer }
+        options:
+          type: array
+          items:
+            type: string
+      required: [title, type]
+
+    QuestionUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        sectionId: { type: string }
+        type:
+          type: string
+          enum: [SHORT_ANSWER, MCQ, CHECKBOX, DROPDOWN]
+        required: { type: boolean }
+        order: { type: integer }
+        options:
+          type: array
+          items:
+            type: string
+
+    SectionCreateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        order: { type: integer }
+
+    SectionUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        order: { type: integer }
+
+    SubmitRequest:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              questionId: { type: string }
+              optionId: { type: string }
+              text: { type: string }
+            required: [questionId]
+
