@@ -53,21 +53,51 @@ app.use(createCsrfGuard({ allowedOrigins: corsOrigins }));
 app.use(routes);
 
 const docsPathCandidates = [
-  path.join(process.cwd(), "docs", "openapi.yaml"),
+  process.env.OPENAPI_SPEC_PATH,
+  path.resolve(__dirname, "docs", "openapi.yaml"),
   path.resolve(__dirname, "..", "docs", "openapi.yaml"),
+  path.join(process.cwd(), "docs", "openapi.yaml"),
   path.join(process.cwd(), "be-formsify", "docs", "openapi.yaml"),
-];
+].filter((candidate): candidate is string => Boolean(candidate));
+
+const docsUiRoutes = ["/api-docs", "/api/docs", "/docs"] as const;
+const docsJsonRoutes = ["/api-docs.json", "/api/docs.json", "/docs/openapi.json"] as const;
+
 const docsPath = docsPathCandidates.find((candidate) => fs.existsSync(candidate));
 if (docsPath) {
   try {
     const raw = fs.readFileSync(docsPath, "utf8");
     const spec = YAML.parse(raw) as Record<string, unknown>;
-    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(spec));
-    app.get("/api-docs.json", (_req, res) => {
-      res.json(spec);
-    });
+
+    for (const docsRoute of docsUiRoutes) {
+      app.use(docsRoute, swaggerUi.serve, swaggerUi.setup(spec));
+    }
+
+    for (const jsonRoute of docsJsonRoutes) {
+      app.get(jsonRoute, (_req, res) => {
+        res.json(spec);
+      });
+    }
   } catch {
     // Skip docs if spec not found or invalid.
+  }
+} else {
+  const message = "OpenAPI spec file not found in runtime artifact";
+  for (const docsRoute of docsUiRoutes) {
+    app.get(docsRoute, (_req, res) => {
+      res.status(503).json({
+        message,
+        code: "OPENAPI_SPEC_NOT_FOUND",
+      });
+    });
+  }
+  for (const jsonRoute of docsJsonRoutes) {
+    app.get(jsonRoute, (_req, res) => {
+      res.status(503).json({
+        message,
+        code: "OPENAPI_SPEC_NOT_FOUND",
+      });
+    });
   }
 }
 

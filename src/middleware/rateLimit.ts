@@ -98,7 +98,12 @@ const getIdentityKey = (req: Request) => getAuthenticatedIdentity(req) ?? getCre
 
 const getPolicy = (req: Request): RateLimitPolicy => {
   const path = req.path.toLowerCase();
-  if (path === "/health" || path.startsWith("/api-docs")) {
+  if (
+    path === "/health" ||
+    path.startsWith("/api-docs") ||
+    path.startsWith("/api/docs") ||
+    path.startsWith("/docs")
+  ) {
     return DOCS_POLICY;
   }
   if (
