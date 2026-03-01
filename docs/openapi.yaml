@@ -6,7 +6,7 @@ info:
     Dokumentasi API untuk backend Formsify.
     Auth dapat menggunakan Bearer token atau cookie `formsify_token`.
     Untuk request mutating dari browser (`POST`/`PUT`/`PATCH`/`DELETE`), origin harus termasuk trusted origin backend.
-    Jika tidak, API dapat mengembalikan `403` dengan kode `CORS_ORIGIN_NOT_ALLOWED` atau `CSRF_ORIGIN_NOT_ALLOWED`.
+    Jika tidak, API dapat mengembalikan `403` dengan kode `CORS_ORIGIN_NOT_ALLOWED`, `CSRF_ORIGIN_NOT_ALLOWED`, atau `CSRF_MISSING_ORIGIN`.
 servers:
   - url: https://be-formsify-production.up.railway.app
 
@@ -395,6 +395,36 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/forms/{id}/builder-bootstrap:
+    get:
+      tags: [Forms]
+      summary: Get builder bootstrap payload (editor/owner only)
+      description: |
+        Endpoint bootstrap builder yang mengembalikan form + sections + questions
+        dalam satu payload dan memverifikasi akses edit (`OWNER`/`EDITOR`).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderBootstrapResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -1107,7 +1137,7 @@ components:
           type: string
         code:
           type: string
-          description: Kode error aplikasi (contoh `CORS_ORIGIN_NOT_ALLOWED`, `CSRF_ORIGIN_NOT_ALLOWED`).
+          description: Kode error aplikasi (contoh `CORS_ORIGIN_NOT_ALLOWED`, `CSRF_ORIGIN_NOT_ALLOWED`, `CSRF_MISSING_ORIGIN`).
         origin:
           type: string
           nullable: true
@@ -1275,6 +1305,28 @@ components:
           allOf:
             - $ref: "#/components/schemas/BuilderSnapshot"
       required: [code, message, latestVersion, snapshot]
+
+    BuilderBootstrapResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            form:
+              $ref: "#/components/schemas/Form"
+            sections:
+              type: array
+              items:
+                $ref: "#/components/schemas/Section"
+            questions:
+              type: array
+              items:
+                $ref: "#/components/schemas/Question"
+            role:
+              type: string
+              enum: [OWNER, EDITOR]
+          required: [form, sections, questions, role]
+      required: [data]
 
     CreateCollaboratorRequest:
       type: object
