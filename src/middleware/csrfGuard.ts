@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { getTokenFromAuthHeader } from "../shared/auth/auth";
+import { AUTH_COOKIE_NAME, getTokenFromAuthHeader } from "../shared/auth/auth";
 import { isAllowedOrigin } from "../shared/security/origin";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -39,10 +39,21 @@ export const createCsrfGuard = ({
     if (hasBearerAuth) {
       return next();
     }
+    const hasAuthCookie =
+      typeof req.cookies?.[AUTH_COOKIE_NAME] === "string" &&
+      req.cookies[AUTH_COOKIE_NAME].trim().length > 0;
 
     const requestOrigin = getRequestOrigin(req);
-    // If no browser origin signal exists, treat as non-browser client.
+    // Cookie-authenticated unsafe requests must present browser origin signal.
+    // This closes a bypass path where forged requests omit Origin/Referer.
     if (!requestOrigin) {
+      if (hasAuthCookie) {
+        return res.status(403).json({
+          message: "Blocked by CSRF protection: missing origin for cookie-auth request",
+          code: "CSRF_MISSING_ORIGIN",
+          hint: "Browser requests must include Origin/Referer and match CORS_ORIGIN.",
+        });
+      }
       return next();
     }
 
