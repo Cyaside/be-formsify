@@ -2,6 +2,23 @@
 
 Backend Formsify dibangun dengan Express + Prisma + PostgreSQL.
 
+## Repository Links
+
+- Backend repo: https://github.com/Cyaside/be-formsify
+- Frontend repo: https://github.com/Cyaside/fe-formsify
+
+## Tech Stack
+
+- Node.js
+- Express 5
+- TypeScript 5
+- Prisma ORM + PostgreSQL (`pg` + `@prisma/adapter-pg`)
+- JWT auth (`jsonwebtoken`) + password hashing (`bcrypt`)
+- Cookie-based auth (`cookie-parser`)
+- CORS middleware (`cors`)
+- Socket.IO (realtime collaboration)
+- Swagger UI (`swagger-ui-express`) + YAML parser (`yaml`) untuk OpenAPI docs
+
 ## Prasyarat
 
 - Node.js 20+
