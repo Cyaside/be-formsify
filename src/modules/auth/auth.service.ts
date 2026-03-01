@@ -246,6 +246,10 @@ export const loginWithGoogle = async ({
 
 export const getMe = async (userId: string) => {
   const user = await authRepository.findMeById(userId);
-  return { user };
+  if (!user) {
+    throw httpError(401, "Invalid or expired token");
+  }
+  const token = signToken({ id: user.id, email: user.email });
+  return { token, user };
 };
 

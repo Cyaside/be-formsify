@@ -57,6 +57,7 @@ export const googleAuth = async (req: Request, res: Response) => {
 export const me = async (req: Request, res: Response) => {
   try {
     const payload = await getMe(req.user!.id);
+    setAuthCookie(res, payload.token);
     return res.json(payload);
   } catch (error) {
     return rethrowUnhandled(res, error);
