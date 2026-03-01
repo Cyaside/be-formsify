@@ -32,7 +32,7 @@ const mapQuestionPersistenceError = (error: unknown) => {
   }
   if (isMissingParagraphEnumMigration(error)) {
     return httpError(
-      409,
+      500,
       "Database schema is outdated (QuestionType.PARAGRAPH missing). Run `prisma migrate deploy`.",
     );
   }
