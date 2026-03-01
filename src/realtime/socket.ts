@@ -6,9 +6,13 @@ import {
 } from "socket.io";
 import { AUTH_COOKIE_NAME, getTokenFromAuthHeader, verifyToken } from "../shared/auth/auth";
 import { isFormCollabEnabled } from "../shared/config/config";
-import { loadBuilderSnapshot } from "../modules/builder/builder.service";
+import {
+  loadBuilderSnapshot,
+  updateBuilderSnapshotForUser,
+} from "../modules/builder/builder.service";
 import { canEditForm, canReadForm } from "../shared/access/formAccess";
 import prisma from "../shared/db/prisma";
+import { HttpServiceError } from "../shared/errors/httpError";
 import {
   COLLAB_EVENTS,
   type CollabClientToServerEvents,
@@ -26,6 +30,7 @@ import {
   type CollabSyncRequestClientPayload,
 } from "./events";
 import { registerCollabStatusBroadcaster } from "./hub";
+import type { BuilderSnapshotInput } from "../modules/builder/builder.types";
 
 type SocketUser = NonNullable<CollabSocketData["user"]>;
 type CollabIo = Server<
@@ -181,6 +186,113 @@ const parseOpPayload = (value: unknown): CollabOpClientPayload | null => {
   };
 };
 
+const parseResponseLimit = (
+  value: unknown,
+): { ok: true; value: number | null } | { ok: false } => {
+  if (value === null || value === undefined) return { ok: true, value: null };
+  if (typeof value === "number") {
+    if (!Number.isInteger(value) || value < 1) return { ok: false };
+    return { ok: true, value };
+  }
+  if (typeof value !== "string") return { ok: false };
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: true, value: null };
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isInteger(parsed) || parsed < 1) return { ok: false };
+  return { ok: true, value: parsed };
+};
+
+const parseBuilderPreviewReplaceSnapshot = (payload: unknown): BuilderSnapshotInput | null => {
+  if (!payload || typeof payload !== "object") return null;
+  const candidate = payload as Record<string, unknown>;
+  if (
+    typeof candidate.title !== "string" ||
+    typeof candidate.description !== "string" ||
+    typeof candidate.thankYouTitle !== "string" ||
+    typeof candidate.thankYouMessage !== "string" ||
+    typeof candidate.isResponseClosed !== "boolean" ||
+    !Array.isArray(candidate.sections) ||
+    !Array.isArray(candidate.questions)
+  ) {
+    return null;
+  }
+
+  const normalizedSections: BuilderSnapshotInput["sections"] = [];
+  for (const section of candidate.sections) {
+    if (!section || typeof section !== "object") return null;
+    const raw = section as Record<string, unknown>;
+    if (
+      typeof raw.id !== "string" ||
+      typeof raw.title !== "string" ||
+      typeof raw.description !== "string" ||
+      typeof raw.order !== "number"
+    ) {
+      return null;
+    }
+    normalizedSections.push({
+      id: raw.id,
+      title: raw.title,
+      description: raw.description,
+      order: raw.order,
+    });
+  }
+
+  const normalizedQuestions: BuilderSnapshotInput["questions"] = [];
+  for (const question of candidate.questions) {
+    if (!question || typeof question !== "object") return null;
+    const raw = question as Record<string, unknown>;
+    if (
+      typeof raw.id !== "string" ||
+      typeof raw.sectionId !== "string" ||
+      typeof raw.title !== "string" ||
+      typeof raw.description !== "string" ||
+      typeof raw.type !== "string" ||
+      typeof raw.required !== "boolean" ||
+      typeof raw.order !== "number" ||
+      !Array.isArray(raw.options)
+    ) {
+      return null;
+    }
+    if (
+      raw.type !== "SHORT_ANSWER" &&
+      raw.type !== "PARAGRAPH" &&
+      raw.type !== "MCQ" &&
+      raw.type !== "CHECKBOX" &&
+      raw.type !== "DROPDOWN"
+    ) {
+      return null;
+    }
+    const options = raw.options;
+    if (!options.every((option) => typeof option === "string")) return null;
+    normalizedQuestions.push({
+      id: raw.id,
+      sectionId: raw.sectionId,
+      title: raw.title,
+      description: raw.description,
+      type: raw.type,
+      required: raw.required,
+      order: raw.order,
+      options,
+    });
+  }
+
+  const parsedResponseLimit = parseResponseLimit(candidate.responseLimit);
+  if (!parsedResponseLimit.ok) {
+    return null;
+  }
+
+  return {
+    title: candidate.title,
+    description: candidate.description,
+    thankYouTitle: candidate.thankYouTitle,
+    thankYouMessage: candidate.thankYouMessage,
+    isClosed: candidate.isResponseClosed,
+    responseLimit: parsedResponseLimit.value,
+    sections: normalizedSections,
+    questions: normalizedQuestions,
+  };
+};
+
 const getParticipants = (formId: string) =>
   Array.from(roomPresence.get(formId)?.values() ?? []).sort((a, b) =>
     a.joinedAt.localeCompare(b.joinedAt),
@@ -236,6 +348,26 @@ const emitSocketError = (
   payload: CollabErrorServerPayload,
 ) => {
   socket.emit(COLLAB_EVENTS.error, payload);
+};
+
+const emitOpRejected = (
+  socket: CollabSocket,
+  payload: {
+    formId: string;
+    opId: string;
+    reason: string;
+    latestVersion: number;
+  },
+) => {
+  socket.emit(COLLAB_EVENTS.opRejected, payload);
+};
+
+const emitPayloadError = (
+  socket: CollabSocket,
+  message: string,
+  code: CollabErrorServerPayload["code"] = "INVALID_PAYLOAD",
+) => {
+  emitSocketError(socket, { message, code });
 };
 
 const logRealtimeHandlerError = (eventName: string, error: unknown) => {
@@ -458,7 +590,7 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
     socket.on(COLLAB_EVENTS.op, withSafeSocketAsyncHandler(socket, COLLAB_EVENTS.op, async (rawPayload) => {
       const payload = parseOpPayload(rawPayload);
       if (!payload) {
-        emitSocketError(socket, { message: "Invalid operation payload", code: "INVALID_PAYLOAD" });
+        emitPayloadError(socket, "Invalid operation payload");
         return;
       }
 
@@ -476,42 +608,8 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         return;
       }
 
-      if (access.form.isPublished) {
-        const hasResponse = await prisma.response.findFirst({
-          where: { formId: payload.formId },
-          select: { id: true },
-        });
-        if (hasResponse) {
-          const lockMessage = "Builder snapshot updates are locked once the form has responses";
-          io.to(formRoomName(payload.formId)).emit(COLLAB_EVENTS.status, {
-            formId: payload.formId,
-            kind: "RESPONSES_LOCKED",
-            message: lockMessage,
-            latestVersion: access.form.version,
-          });
-          socket.emit(COLLAB_EVENTS.opRejected, {
-            formId: payload.formId,
-            opId: payload.opId,
-            reason: "RESPONSES_LOCKED",
-            latestVersion: access.form.version,
-          });
-          return;
-        }
-      }
-
-      if (payload.baseVersion !== access.form.version) {
-        socket.emit(COLLAB_EVENTS.opRejected, {
-          formId: payload.formId,
-          opId: payload.opId,
-          reason: "BASE_VERSION_MISMATCH",
-          latestVersion: access.form.version,
-        });
-        return;
-      }
-
-
       if (payload.type !== "builder.preview.replace") {
-        socket.emit(COLLAB_EVENTS.opRejected, {
+        emitOpRejected(socket, {
           formId: payload.formId,
           opId: payload.opId,
           reason: "NOT_IMPLEMENTED",
@@ -520,10 +618,50 @@ export const setupRealtimeServer = (httpServer: HttpServer) => {
         return;
       }
 
+      const parsedSnapshot = parseBuilderPreviewReplaceSnapshot(payload.payload);
+      if (!parsedSnapshot) {
+        emitPayloadError(socket, "Invalid builder.preview.replace payload");
+        return;
+      }
+
+      let persistedVersion = access.form.version;
+      try {
+        const saveResult = await updateBuilderSnapshotForUser({
+          userId: user.id,
+          formId: payload.formId,
+          rawBaseVersion: payload.baseVersion,
+          rawSnapshot: parsedSnapshot,
+        });
+        persistedVersion = saveResult.version;
+      } catch (error) {
+        if (error instanceof HttpServiceError && error.status === 409) {
+          const details =
+            error.payload && typeof error.payload === "object"
+              ? (error.payload as Record<string, unknown>)
+              : null;
+          const latestVersionRaw = details?.latestVersion;
+          const latestVersion =
+            typeof latestVersionRaw === "number" && Number.isInteger(latestVersionRaw)
+              ? latestVersionRaw
+              : access.form.version;
+          const reasonRaw = details?.code;
+          const reason =
+            reasonRaw === "RESPONSES_LOCKED" ? "RESPONSES_LOCKED" : "BASE_VERSION_MISMATCH";
+          emitOpRejected(socket, {
+            formId: payload.formId,
+            opId: payload.opId,
+            reason,
+            latestVersion,
+          });
+          return;
+        }
+        throw error;
+      }
+
       io.to(formRoomName(payload.formId)).emit(COLLAB_EVENTS.opApplied, {
         formId: payload.formId,
         opId: payload.opId,
-        nextVersion: access.form.version,
+        nextVersion: persistedVersion,
         op: payload,
         actor: {
           id: user.id,
