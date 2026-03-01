@@ -9,6 +9,36 @@ type QuestionBody = Record<string, unknown>;
 const requiresOptions = (type: QuestionType) =>
   type === "MCQ" || type === "CHECKBOX" || type === "DROPDOWN";
 
+const hasPrismaErrorCode = (error: unknown, code: string) => {
+  if (!error || typeof error !== "object") return false;
+  const maybeCode = (error as { code?: unknown }).code;
+  return typeof maybeCode === "string" && maybeCode === code;
+};
+
+const isMissingParagraphEnumMigration = (error: unknown) => {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("questiontype") &&
+    message.includes("paragraph") &&
+    (message.includes("invalid input value for enum") ||
+      message.includes("value \"paragraph\" not found"))
+  );
+};
+
+const mapQuestionPersistenceError = (error: unknown) => {
+  if (hasPrismaErrorCode(error, "P2025")) {
+    return httpError(404, "Question not found");
+  }
+  if (isMissingParagraphEnumMigration(error)) {
+    return httpError(
+      409,
+      "Database schema is outdated (QuestionType.PARAGRAPH missing). Run `prisma migrate deploy`.",
+    );
+  }
+  return null;
+};
+
 const parseOptions = (value: unknown) => {
   if (!Array.isArray(value)) return null;
   const labels = value
@@ -199,16 +229,23 @@ export const createQuestionForForm = async ({
     throw httpError(400, "Options are required for this type");
   }
 
-  const question = await questionsRepository.createQuestion({
-    formId,
-    sectionId: resolvedSection.sectionId,
-    title,
-    description,
-    type,
-    required,
-    order,
-    options: requiresOptions(type) ? options : null,
-  });
+  let question;
+  try {
+    question = await questionsRepository.createQuestion({
+      formId,
+      sectionId: resolvedSection.sectionId,
+      title,
+      description,
+      type,
+      required,
+      order,
+      options: requiresOptions(type) ? options : null,
+    });
+  } catch (error) {
+    const mapped = mapQuestionPersistenceError(error);
+    if (mapped) throw mapped;
+    throw error;
+  }
 
   return { data: question };
 };
@@ -248,30 +285,37 @@ export const updateQuestionByIdForUser = async ({
 
   const shouldResetOptions = body.options !== undefined || !requiresOptions(nextType);
 
-  const updated = await questionsPrisma.$transaction(async (tx) => {
-    await tx.question.update({
-      where: { id: questionId },
-      data,
-    });
+  let updated;
+  try {
+    updated = await questionsPrisma.$transaction(async (tx) => {
+      await tx.question.update({
+        where: { id: questionId },
+        data,
+      });
 
-    if (shouldResetOptions) {
-      await tx.option.deleteMany({ where: { questionId } });
-      if (requiresOptions(nextType) && options && options.length > 0) {
-        await tx.option.createMany({
-          data: options.map((label, index) => ({
-            questionId,
-            label,
-            order: index,
-          })),
-        });
+      if (shouldResetOptions) {
+        await tx.option.deleteMany({ where: { questionId } });
+        if (requiresOptions(nextType) && options && options.length > 0) {
+          await tx.option.createMany({
+            data: options.map((label, index) => ({
+              questionId,
+              label,
+              order: index,
+            })),
+          });
+        }
       }
-    }
 
-    return tx.question.findUnique({
-      where: { id: questionId },
-      include: { options: { orderBy: { order: "asc" } } },
+      return tx.question.findUnique({
+        where: { id: questionId },
+        include: { options: { orderBy: { order: "asc" } } },
+      });
     });
-  });
+  } catch (error) {
+    const mapped = mapQuestionPersistenceError(error);
+    if (mapped) throw mapped;
+    throw error;
+  }
 
   return { data: updated };
 };
