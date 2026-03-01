@@ -130,6 +130,44 @@ export const getFormForUser = async ({
   };
 };
 
+export const getBuilderBootstrapForUser = async ({
+  formId,
+  userId,
+}: {
+  formId: string;
+  userId: string;
+}) => {
+  const access = await canEditForm(userId, formId);
+  if (!access.ok) throw httpError(access.error.status, access.error.message);
+
+  const [form, sections, questions] = await Promise.all([
+    formsRepository.findFormDetailWithOwnerAndCount(formId),
+    formsPrisma.section.findMany({
+      where: { formId },
+      orderBy: { order: "asc" },
+    }),
+    formsPrisma.question.findMany({
+      where: { formId },
+      orderBy: [{ section: { order: "asc" } }, { order: "asc" }],
+      include: { options: { orderBy: { order: "asc" } } },
+    }),
+  ]);
+
+  if (!form) throw httpError(404, "Form not found");
+
+  return {
+    data: {
+      form: {
+        ...form,
+        responseCount: form._count.responses,
+      },
+      sections,
+      questions,
+      role: access.form.role,
+    },
+  };
+};
+
 export const createFormForUser = async ({
   userId,
   body,

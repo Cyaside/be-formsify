@@ -9,6 +9,7 @@ import {
 import {
   createForm,
   deleteForm,
+  getBuilderBootstrap,
   getForm,
   listCollaboratorForms,
   listForms,
@@ -40,6 +41,12 @@ router.get(
   authRequired,
   requireFormCollabEnabled,
   listCollaboratorForms,
+);
+router.get(
+  "/:id/builder-bootstrap",
+  validateRequest({ params: schemas.idParams, query: schemas.emptyQuery }),
+  authRequired,
+  getBuilderBootstrap,
 );
 router.get(
   "/:id",

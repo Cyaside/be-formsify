@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import {
   createFormForUser,
   deleteFormForUser,
+  getBuilderBootstrapForUser,
   getFormForUser,
   listCollaboratorFormsForUser,
   listPublicForms as listPublicFormsService,
@@ -61,6 +62,18 @@ export const getForm = async (req: Request, res: Response) => {
     const payload = await getFormForUser({
       formId: String(req.params.id),
       userId: req.user?.id ?? null,
+    });
+    return res.json(payload);
+  } catch (error) {
+    return rethrowUnhandled(res, error);
+  }
+};
+
+export const getBuilderBootstrap = async (req: Request, res: Response) => {
+  try {
+    const payload = await getBuilderBootstrapForUser({
+      formId: String(req.params.id),
+      userId: req.user!.id,
     });
     return res.json(payload);
   } catch (error) {
